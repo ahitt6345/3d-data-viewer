@@ -23,3 +23,20 @@ function animate() {
 
 animate();
 
+// connect to the server
+var localData = [];
+const socket = io('http://localhost:3000');
+socket.on('connect', () => {
+    console.log('connected');
+    socket.emit('getdata');
+    socket.on('data', (data) => {
+        if (data === 'End of data') {
+            console.log('All data received');
+        } else {
+            // Handle the received data chunk
+            localData = localData.concat(data);
+            console.log("chunk received: ", data.length, "total: ", localData.length);
+            socket.emit('nextchunk');
+        }
+    });
+});
