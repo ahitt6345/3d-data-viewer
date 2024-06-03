@@ -1,4 +1,4 @@
-import * as THREE from '../node_modules/three/build/three.module.js';
+import * as THREE from '/ext/three.module.js';
 
 // render a sphere
 const scene = new THREE.Scene();
