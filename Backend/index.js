@@ -10,17 +10,17 @@ var io = require('socket.io')(server);
 // simple file hosting
 // frontend files are in ../Frontend
 app.get('*', (req, res) => { // This is a catch all for all requests, however we need to restructure this so that it only serves files from the frontend folder.
-  var dir = path.join(__dirname, './Frontend'); 
-  res.sendFile(dir + req.url);
+    var dir = path.join(__dirname, './Frontend');
+    res.sendFile(dir + req.url);
 });
 
 server.listen(3000, () => {
-  console.log('listening on *:3000');
+    console.log('listening on *:3000');
 });
 
 // read csv file
 
-var csv = require('csv-parser'); 
+var csv = require('csv-parser');
 
 // file name: gendata.csv
 var filename = 'gendata.csv';
@@ -37,39 +37,44 @@ var s = 0;
 
 var dataAvailable = false;
 fs.createReadStream(filename).pipe(csv()).on('data', (row) => { // This will most likely be a database in the future, but for now it's a csv file :P
-  // we want to create a data structure like this:
-  // data = [ { company: '...', industry: '...', mosaic: '...', applications: '...', total_funding: '...' }, ...]
-  var filteredRow = { company: row['Companies'], industry: row['Industry'], mosaic: row['Mosaic (Overall)'], applications: row['Applications'], total_funding: row['Total Funding'] };
-  data.push(filteredRow);
-
-
+    // we want to create a data structure like this:
+    // data = [ { company: '...', industry: '...', mosaic: '...', applications: '...', total_funding: '...' }, ...]
+    var filteredRow = {
+        company: row['Companies'],
+        industry: row['Industry'],
+        mosaic: +row['Mosaic (Overall)'],
+        applications: row['Applications'],
+        total_funding: +row['Total Funding']
+    };
+    data.push(filteredRow);
 }).on('end', () => {
-  console.log('CSV file successfully processed');
-  dataAvailable = true;
+    console.log('CSV file successfully processed');
+    dataAvailable = true;
 });
 
 // use socket.io to send data to the frontend
+var datIsAvailable = false;
 io.on('connection', (socket) => {
-  console.log('a user connected');
-  socket.on('getdata', () => {
-    if (dataAvailable) {
-      let chunkSize = 100; // Send 100 items at a time
-      let currentIndex = 0;
+    console.log('a user connected');
+    socket.on('getdata', () => {
+        if (dataAvailable) {
+            let chunkSize = 100; // Send 100 items at a time
+            let currentIndex = 0;
 
-      const sendChunk = () => {
-        if (currentIndex < data.length) {
-          const chunk = data.slice(currentIndex, currentIndex + chunkSize);
-          socket.emit('data', chunk);
-          currentIndex += chunkSize;
+            const sendChunk = () => {
+                if (currentIndex < data.length) {
+                    const chunk = data.slice(currentIndex, currentIndex + chunkSize);
+                    socket.emit('data', chunk);
+                    currentIndex += chunkSize;
+                } else {
+                    socket.emit('data', 'End of data');
+                }
+            };
+
+            sendChunk();
+            socket.on('nextchunk', sendChunk);
         } else {
-          socket.emit('data', 'End of data');
+            socket.emit('data', 'Data not available');
         }
-      };
-
-      sendChunk();
-      socket.on('nextchunk', sendChunk);
-    } else {
-      socket.emit('data', 'Data not available');
-    }
-  });
+    });
 });
