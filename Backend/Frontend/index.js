@@ -121,50 +121,51 @@ var CompanySphere = function(x,y,z,radius, companyData, applicationSphere) {
     this.sphere = new THREE.Mesh(new THREE.SphereGeometry(radius, 32, 32), new THREE.MeshBasicMaterial({color: 0xffff00, opacity: 0.5, transparent: true}));
     // check if coordinates are real numbers
     var appSphere = applicationSphere.sphere;
-    if (isNaN(x) || isNaN(y) || isNaN(z) || dist(x, applicationSphere.sphere.position.x, y, applicationSphere.sphere.position.y, z, applicationSphere.sphere.position.z) > applicationSphere.sphere.geometry.parameters.radius) {
-        console.log("Invalid coordinates for company sphere: ", companyData.company, "At applicationSpher: ", applicationSphere.application);
+    
+    // if (isNaN(x) || isNaN(y) || isNaN(z) || dist(x, applicationSphere.sphere.position.x, y, applicationSphere.sphere.position.y, z, applicationSphere.sphere.position.z) > applicationSphere.sphere.geometry.parameters.radius) {
+    //     console.log("Invalid coordinates for company sphere: ", companyData.company, "At applicationSpher: ", applicationSphere.application);
         
-        // change appSphere's color to green
-        appSphere.material.color.setHex(0x00ff00);
-        /*
-        //draw a blue line from the application sphere to the company sphere
-        var material = new THREE.LineBasicMaterial({color: 0x0000ff});
-        var points = [];
-        points.push(new THREE.Vector3(appSphere.position.x, appSphere.position.y, appSphere.position.z));
-        points.push(new THREE.Vector3(x, y, z));
-        var geometry = new THREE.BufferGeometry().setFromPoints(points);
-        var line = new THREE.Line(geometry, material);
-        scene.add(line);*/
+    //     // change appSphere's color to green
+    //     appSphere.material.color.setHex(0x00ff00);
+        
+    //     //draw a blue line from the application sphere to the company sphere
+    //     // var material = new THREE.LineBasicMaterial({color: 0x0000ff});
+    //     // var points = [];
+    //     // points.push(new THREE.Vector3(appSphere.position.x, appSphere.position.y, appSphere.position.z));
+    //     // points.push(new THREE.Vector3(x, y, z));
+    //     // var geometry = new THREE.BufferGeometry().setFromPoints(points);
+    //     // var line = new THREE.Line(geometry, material);
+    //     // scene.add(line);
 
-        // generate new coordinates for the company sphere that are contained within the radius of the application sphere
-        var spawnRadius = appSphere.geometry.parameters.radius - radius;
-        var attempts = 0;
-        do {
-            x = Math.random() * 2 - 1;
-            y = Math.random() * 2 - 1;
-            z = Math.random() * 2 - 1;
+    //     // generate new coordinates for the company sphere that are contained within the radius of the application sphere
+    //     var spawnRadius = appSphere.geometry.parameters.radius - radius;
+    //     var attempts = 0;
+    //     do {
+    //         x = Math.random() * 2 - 1;
+    //         y = Math.random() * 2 - 1;
+    //         z = Math.random() * 2 - 1;
 
-            var length = Math.sqrt(x * x + y * y + z * z);
-            if (length > 1) continue;
-            x = appSphere.position.x + (x / length) * spawnRadius;
-            y = appSphere.position.y + (y / length) * spawnRadius;
-            z = appSphere.position.z + (z / length) * spawnRadius;
+    //         var length = Math.sqrt(x * x + y * y + z * z);
+    //         if (length > 1) continue;
+    //         x = appSphere.position.x + (x / length) * spawnRadius;
+    //         y = appSphere.position.y + (y / length) * spawnRadius;
+    //         z = appSphere.position.z + (z / length) * spawnRadius;
 
-            attempts++;
-        } while (attempts < 100 && dist(x, appSphere.position.x, y, appSphere.position.y, z, appSphere.position.z) > appSphere.geometry.parameters.radius);
+    //         attempts++;
+    //     } while (attempts < 100 && dist(x, appSphere.position.x, y, appSphere.position.y, z, appSphere.position.z) > appSphere.geometry.parameters.radius);
 
-        if (attempts >= 100) {
-            console.log("Failed to place company sphere within application sphere after 100 attempts.");
-            return;
-        }
+    //     if (attempts >= 100) {
+    //         console.log("Failed to place company sphere within application sphere after 100 attempts.");
+    //         return;
+    //     }
 
-        // final check
+    //     // final check
 
-        if (isNaN(x) || isNaN(y) || isNaN(z) || dist(x, appSphere.position.x, y, appSphere.position.y, z, appSphere.position.z) > appSphere.geometry.parameters.radius) {
-            console.log("Invalid coordinates for company sphere: ", companyData.company, "At applicationSpher: ", applicationSphere.application, "Even after corrective measures.");
-            //return;
-        }
-    }
+    //     if (isNaN(x) || isNaN(y) || isNaN(z) || dist(x, appSphere.position.x, y, appSphere.position.y, z, appSphere.position.z) > appSphere.geometry.parameters.radius) {
+    //         console.log("Invalid coordinates for company sphere: ", companyData.company, "At applicationSpher: ", applicationSphere.application, "Even after corrective measures.");
+    //         //return;
+    //     }
+    // }
     this.sphere.position.set(x,y,z);
     var material = new THREE.LineBasicMaterial({color: 0x0000ff});
     var points = [];
@@ -210,6 +211,30 @@ var ApplicationSphere = function(x,y,z,radius, application) {
     scene.add(textMesh);
 };
 
+function randomPointInSphere(center, R) {
+    // Generate a random angle θ between 0 and 2π
+    let theta = Math.random() * 2 * Math.PI;
+
+    // Generate a random angle φ between 0 and π
+    let phi = Math.random() * Math.PI;
+
+    // Generate a random value u between 0 and 1 and compute the radius r
+    let u = Math.random();
+    let r = R * Math.cbrt(u); // Use the cube root of u to ensure uniform distribution
+
+    // Convert spherical coordinates to Cartesian coordinates
+    let x = r * Math.sin(phi) * Math.cos(theta);
+    let y = r * Math.sin(phi) * Math.sin(theta);
+    let z = r * Math.cos(phi);
+
+    // Translate the point to be centered at (center.x, center.y, center.z)
+    x += center.x;
+    y += center.y;
+    z += center.z;
+
+    return { x: x, y: y, z: z };
+}
+
 ApplicationSphere.prototype.addCompany = function(companyData) {
     var applicationSphereRadius = this.sphere.geometry.parameters.radius;
     var newCompanySphereRadius = (companyData.mosaic / 1000) * 5;
@@ -218,17 +243,11 @@ ApplicationSphere.prototype.addCompany = function(companyData) {
     var x, y, z;
     var attempts = 0; // Prevent infinite loop
     do {
-        // Generate random point within the bounding box of the sphere
-        x = Math.random() * 2 - 1;
-        y = Math.random() * 2 - 1;
-        z = Math.random() * 2 - 1;
-
-        // Normalize the point to be inside the unit sphere
-        var length = Math.sqrt(x * x + y * y + z * z);
-        if (length > 1) continue; // Ensure it's inside the unit sphere
-        x = this.sphere.position.x + (x / length) * spawnRadius;
-        y = this.sphere.position.y + (y / length) * spawnRadius;
-        z = this.sphere.position.z + (z / length) * spawnRadius;
+        // Generate random point within the application sphere
+        var randomPoint = randomPointInSphere(this.sphere.position, spawnRadius);
+        x = randomPoint.x;
+        y = randomPoint.y;
+        z = randomPoint.z;
 
         attempts++;
     } while (attempts < 100 && this.companies.some((sphere) => {
@@ -244,7 +263,8 @@ ApplicationSphere.prototype.addCompany = function(companyData) {
         console.log("Failed to place company sphere within application sphere after 100 attempts.");
     }
 };
-var processData = function(data){
+
+var processData = function(data) {
     var applications = {}; // This will be used to store the unique applications
     for (var i = 0; i < data.length; i++) {
         applications[data[i].applications] = 1;
@@ -252,25 +272,34 @@ var processData = function(data){
     applications = Object.keys(applications); // Get the array of unique applications
     console.log(applications);
     var applicationSpheres = [];
+    var applicationSphereRadius = 50;
+
     for (var i = 0; i < applications.length; i++) {
-        var x,y,z;
-
+        var x, y, z;
+        var attempts = 0;
+        var tooClose;
         do {
-            x = Math.random() * 500 - 250;
-            y = Math.random() * 500 - 250;
-            z = Math.random() * 500 - 250;
-        } while (applicationSpheres.some((sphere) => { // Make sure the spheres don't overlap
-            var distance = dist(x, sphere.sphere.position.x, y, sphere.sphere.position.y, z, sphere.sphere.position.z);
-            return distance < sphere.sphere.geometry.parameters.radius + 10;
-        }));
+            var randomPoint = randomPointInSphere({ x: 0, y: 0, z: 0 }, 500);
+            x = randomPoint.x;
+            y = randomPoint.y;
+            z = randomPoint.z;
+            attempts++;
 
-        
-        var newApplicationSphere = new ApplicationSphere(
-            x,y,z,
-            50,
-            applications[i]
-        );
-        applicationSpheres.push(newApplicationSphere);
+            tooClose = applicationSpheres.some((sphere) => {
+                return distObj({ x: x, y: y, z: z }, sphere.sphere.position) < applicationSphereRadius * 2;
+            });
+        } while (attempts < 100 && tooClose);
+
+        if (!tooClose) {
+            var newApplicationSphere = new ApplicationSphere(
+                x, y, z,
+                applicationSphereRadius,
+                applications[i]
+            );
+            applicationSpheres.push(newApplicationSphere);
+        } else {
+            console.log("Failed to place application sphere after 100 attempts.");
+        }
     }
 
     for (var i = 0; i < data.length; i++) {
@@ -286,9 +315,14 @@ var processData = function(data){
             console.log("Failed to find application sphere for company: ", data[i].company);
         }
     }
-    
-
 };
+
+// The updated distance function using objects
+var distObj = function(point1, point2) {
+    return Math.sqrt(Math.pow(point2.x - point1.x, 2) + Math.pow(point2.y - point1.y, 2) + Math.pow(point2.z - point1.z, 2));
+}
+
+
 // connect to the server
 var localData = [];
 // localData is structured as follows: [ { company: '...', industry: '...', mosaic: '...', applications: '...', total_funding: '...' }, ...]
