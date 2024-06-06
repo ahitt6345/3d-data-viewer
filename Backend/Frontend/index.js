@@ -187,6 +187,8 @@ var CompanySphere = function(x,y,z,radius, companyData, applicationSphere) {
     this.companyData = companyData;
     scene.add(this.sphere);
     this.applicationSphere = applicationSphere;
+    // link text to this sphere
+    this.textMesh = textMesh;
 };
 var ApplicationSphere = function(x,y,z,radius, application) {
     this.companies = [];
@@ -209,6 +211,8 @@ var ApplicationSphere = function(x,y,z,radius, application) {
     var textMesh = new THREE.Mesh(text, textMaterial);
     textMesh.position.set(x, y, z);
     scene.add(textMesh);
+    // Link text to this sphere
+    this.textMesh = textMesh;
 };
 
 function randomPointInSphere(center, R) {
@@ -237,7 +241,7 @@ function randomPointInSphere(center, R) {
 
 ApplicationSphere.prototype.addCompany = function(companyData) {
     var applicationSphereRadius = this.sphere.geometry.parameters.radius;
-    var newCompanySphereRadius = (companyData.mosaic / 1000) * 5;
+    var newCompanySphereRadius = Math.max(1,(companyData.mosaic / 1000) * 5);
     var spawnRadius = applicationSphereRadius - newCompanySphereRadius;
 
     var x, y, z;
