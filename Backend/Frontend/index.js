@@ -117,55 +117,11 @@ function animate() {
 }
 
 animate();
-var CompanySphere = function(x,y,z,radius, companyData, applicationSphere) {
+var CompanySphere = function(x,y,z,radius, companyData, application) {
     this.sphere = new THREE.Mesh(new THREE.SphereGeometry(radius, 32, 32), new THREE.MeshBasicMaterial({color: 0xffff00, opacity: 0.5, transparent: true}));
     // check if coordinates are real numbers
-    var appSphere = applicationSphere.sphere;
-    
-    // if (isNaN(x) || isNaN(y) || isNaN(z) || dist(x, applicationSphere.sphere.position.x, y, applicationSphere.sphere.position.y, z, applicationSphere.sphere.position.z) > applicationSphere.sphere.geometry.parameters.radius) {
-    //     console.log("Invalid coordinates for company sphere: ", companyData.company, "At applicationSpher: ", applicationSphere.application);
-        
-    //     // change appSphere's color to green
-    //     appSphere.material.color.setHex(0x00ff00);
-        
-    //     //draw a blue line from the application sphere to the company sphere
-    //     // var material = new THREE.LineBasicMaterial({color: 0x0000ff});
-    //     // var points = [];
-    //     // points.push(new THREE.Vector3(appSphere.position.x, appSphere.position.y, appSphere.position.z));
-    //     // points.push(new THREE.Vector3(x, y, z));
-    //     // var geometry = new THREE.BufferGeometry().setFromPoints(points);
-    //     // var line = new THREE.Line(geometry, material);
-    //     // scene.add(line);
-
-    //     // generate new coordinates for the company sphere that are contained within the radius of the application sphere
-    //     var spawnRadius = appSphere.geometry.parameters.radius - radius;
-    //     var attempts = 0;
-    //     do {
-    //         x = Math.random() * 2 - 1;
-    //         y = Math.random() * 2 - 1;
-    //         z = Math.random() * 2 - 1;
-
-    //         var length = Math.sqrt(x * x + y * y + z * z);
-    //         if (length > 1) continue;
-    //         x = appSphere.position.x + (x / length) * spawnRadius;
-    //         y = appSphere.position.y + (y / length) * spawnRadius;
-    //         z = appSphere.position.z + (z / length) * spawnRadius;
-
-    //         attempts++;
-    //     } while (attempts < 100 && dist(x, appSphere.position.x, y, appSphere.position.y, z, appSphere.position.z) > appSphere.geometry.parameters.radius);
-
-    //     if (attempts >= 100) {
-    //         console.log("Failed to place company sphere within application sphere after 100 attempts.");
-    //         return;
-    //     }
-
-    //     // final check
-
-    //     if (isNaN(x) || isNaN(y) || isNaN(z) || dist(x, appSphere.position.x, y, appSphere.position.y, z, appSphere.position.z) > appSphere.geometry.parameters.radius) {
-    //         console.log("Invalid coordinates for company sphere: ", companyData.company, "At applicationSpher: ", applicationSphere.application, "Even after corrective measures.");
-    //         //return;
-    //     }
-    // }
+    // search for the application sphere with the same name as the applicationName
+    var appSphere = application.sphere;
     this.sphere.position.set(x,y,z);
     var material = new THREE.LineBasicMaterial({color: 0x0000ff});
     var points = [];
@@ -186,9 +142,13 @@ var CompanySphere = function(x,y,z,radius, companyData, applicationSphere) {
     scene.add(textMesh);
     this.companyData = companyData;
     scene.add(this.sphere);
-    this.applicationSphere = applicationSphere;
+    this.applicationSphere = appSphere;
     // link text to this sphere
     this.textMesh = textMesh;
+};
+
+CompanySphere.fromTuple = function(tuple) {
+    return new CompanySphere(tuple[0], tuple[1], tuple[2], tuple[3], tuple[4], tuple[5]);
 };
 var ApplicationSphere = function(x,y,z,radius, application) {
     this.companies = [];
@@ -214,7 +174,14 @@ var ApplicationSphere = function(x,y,z,radius, application) {
     // Link text to this sphere
     this.textMesh = textMesh;
 };
-
+ApplicationSphere.fromTuple = function(tuple) {
+    var applicationSphere = new ApplicationSphere(tuple[0], tuple[1], tuple[2], tuple[3], tuple[4]);
+    // use addCompany to add all the companies
+    for (var i = 0; i < tuple[5].length; i++) {
+        applicationSphere.addCompany(tuple[5][i]);
+    }
+    return applicationSphere;
+};
 function randomPointInSphere(center, R) {
     // Generate a random angle θ between 0 and 2π
     let theta = Math.random() * 2 * Math.PI;
@@ -239,85 +206,22 @@ function randomPointInSphere(center, R) {
     return { x: x, y: y, z: z };
 }
 
-ApplicationSphere.prototype.addCompany = function(companyData) {
-    var applicationSphereRadius = this.sphere.geometry.parameters.radius;
+ApplicationSphere.prototype.addCompany = function(companyDataTuple) {
+    // companyDataTuple is a tuple of the form [x, y, z, radius, companyData]
+    // companyData is an object with the following properties: [company, mosaic, industry, total_funding, applications]
+    var companyData = companyDataTuple[4];
+    var applicationSphereRadius = this.radius;
     var newCompanySphereRadius = Math.max(1,(companyData.mosaic / 1000) * 5);
     var spawnRadius = applicationSphereRadius - newCompanySphereRadius;
-
-    var x, y, z;
-    var attempts = 0; // Prevent infinite loop
-    do {
-        // Generate random point within the application sphere
-        var randomPoint = randomPointInSphere(this.sphere.position, spawnRadius);
-        x = randomPoint.x;
-        y = randomPoint.y;
-        z = randomPoint.z;
-
-        attempts++;
-    } while (attempts < 100 && this.companies.some((sphere) => {
-        // Make sure the spheres don't overlap
-        var distance = dist(x, sphere.sphere.position.x, y, sphere.sphere.position.y, z, sphere.sphere.position.z);
-        return distance < sphere.sphere.geometry.parameters.radius + newCompanySphereRadius;
-    }));
-
-    if (attempts < 100) {
-        var newCompanySphere = new CompanySphere(x, y, z, newCompanySphereRadius, companyData, this);
-        this.companies.push(newCompanySphere);
-    } else {
-        console.log("Failed to place company sphere within application sphere after 100 attempts.");
-    }
+    var x = companyDataTuple[0], y = companyDataTuple[1], z = companyDataTuple[2];
+    var newCompanySphere = new CompanySphere(x, y, z, newCompanySphereRadius, companyData, this);
+    this.companies.push(newCompanySphere);
 };
-
+var applicationSpheres = [];
 var processData = function(data) {
-    var applications = {}; // This will be used to store the unique applications
+    // data is structured as an array of application sphere tuples
     for (var i = 0; i < data.length; i++) {
-        applications[data[i].applications] = 1;
-    }
-    applications = Object.keys(applications); // Get the array of unique applications
-    console.log(applications);
-    var applicationSpheres = [];
-    var applicationSphereRadius = 50;
-
-    for (var i = 0; i < applications.length; i++) {
-        var x, y, z;
-        var attempts = 0;
-        var tooClose;
-        do {
-            var randomPoint = randomPointInSphere({ x: 0, y: 0, z: 0 }, 500);
-            x = randomPoint.x;
-            y = randomPoint.y;
-            z = randomPoint.z;
-            attempts++;
-
-            tooClose = applicationSpheres.some((sphere) => {
-                return distObj({ x: x, y: y, z: z }, sphere.sphere.position) < applicationSphereRadius * 2;
-            });
-        } while (attempts < 100 && tooClose);
-
-        if (!tooClose) {
-            var newApplicationSphere = new ApplicationSphere(
-                x, y, z,
-                applicationSphereRadius,
-                applications[i]
-            );
-            applicationSpheres.push(newApplicationSphere);
-        } else {
-            console.log("Failed to place application sphere after 100 attempts.");
-        }
-    }
-
-    for (var i = 0; i < data.length; i++) {
-        var foundApplicationSphere = false;
-        for (var j = 0; j < applicationSpheres.length; j++) {
-            if (data[i].applications === applicationSpheres[j].application) {
-                applicationSpheres[j].addCompany(data[i]);
-                foundApplicationSphere = true;
-                break;
-            }
-        }
-        if (!foundApplicationSphere) {
-            console.log("Failed to find application sphere for company: ", data[i].company);
-        }
+        applicationSpheres.push(ApplicationSphere.fromTuple(data[i]));
     }
 };
 
@@ -329,7 +233,7 @@ var distObj = function(point1, point2) {
 
 // connect to the server
 var localData = [];
-// localData is structured as follows: [ { company: '...', industry: '...', mosaic: '...', applications: '...', total_funding: '...' }, ...]
+
 const socket = io('http://localhost:3000');
 socket.on('connect', () => {
     console.log('connected');
@@ -339,8 +243,8 @@ socket.on('connect', () => {
             console.log('All data received');
             processData(localData);
         } else {
-            // Handle the received data chunk
-            localData = localData.concat(data);
+            // Handle the received data chunk 
+            localData = localData.concat(data); // data is an array of tuple'ized' application spheres
             console.log("chunk received: ", data.length, "total: ", localData.length);
             socket.emit('nextchunk');
         }
