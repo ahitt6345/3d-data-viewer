@@ -3,7 +3,7 @@ import { PointerLockControls } from '/ext/PointerLockControls.js';
 import { TextGeometry } from '/ext/TextGeometry.js';
 import { FontLoader } from '/ext/FontLoader.js';
 import helvetiker from '/ext/helvetiker_regular.typeface.json' assert { type: 'json' };
-// render a sphere
+// Chrome browser version: 125.0.6422.142 (Official Build) (64-bit) (cohort: Stable) seems to make the pointer controls work better
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
@@ -15,7 +15,6 @@ var helvetikerFont = new FontLoader().parse(helvetiker);
 var isPressed = {};
 document.addEventListener('keydown', (event) => {
     const keyCode = event.keyCode;
-
     switch (keyCode) {
         case 87: // W key
             isPressed['W'] = true;
@@ -43,7 +42,6 @@ var dist = function(x,x1,y,y1,z,z1){
 }
 document.addEventListener('keyup', (event) => {
     const keyCode = event.keyCode;
-
     switch (keyCode) {
         case 87: // W key
             isPressed['W'] = false;
@@ -150,30 +148,28 @@ var CompanySphere = function(x,y,z,radius, companyData, application) {
 CompanySphere.fromTuple = function(tuple) {
     return new CompanySphere(tuple[0], tuple[1], tuple[2], tuple[3], tuple[4], tuple[5]);
 };
-var ApplicationSphere = function(x,y,z,radius, application) {
-    this.companies = [];
-    // check if coordinates are real numbers
-    if (isNaN(x) || isNaN(y) || isNaN(z)) {
-        console.log("Invalid coordinates for application sphere: ", application);
-        //return;
+class ApplicationSphere {
+    constructor(x, y, z, radius, application) {
+        this.companies = [];
+        if (isNaN(x) || isNaN(y) || isNaN(z)) {
+            console.log("Invalid coordinates for application sphere: ", application);
+        }
+        this.sphere = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 1, 32), new THREE.MeshBasicMaterial({color: 0xff0000, opacity: 0.5, transparent: true}));
+        this.sphere.position.set(x, y, z);
+        this.application = application;
+        scene.add(this.sphere);
+        var text = new TextGeometry(application, {
+            font: helvetikerFont,
+            size: 1,
+            depth: 0.1
+        });
+        var textMaterial = new THREE.MeshBasicMaterial({color: 0xFFFFFF});
+        var textMesh = new THREE.Mesh(text, textMaterial);
+        textMesh.position.set(x, y, z);
+        scene.add(textMesh);
+        this.textMesh = textMesh;
     }
-    this.sphere = new THREE.Mesh(new THREE.SphereGeometry(radius, 32, 32), new THREE.MeshBasicMaterial({color: 0xff0000, opacity: 0.5, transparent: true}));
-    this.sphere.position.set(x,y,z);
-    this.application = application;
-    scene.add(this.sphere);
-    // Write the application in the sphere using threejs text
-    var text = new TextGeometry(application, {
-        font: helvetikerFont,
-        size: 1,
-        depth: 0.1
-    });
-    var textMaterial = new THREE.MeshBasicMaterial({color: 0xFFFFFF});
-    var textMesh = new THREE.Mesh(text, textMaterial);
-    textMesh.position.set(x, y, z);
-    scene.add(textMesh);
-    // Link text to this sphere
-    this.textMesh = textMesh;
-};
+}
 ApplicationSphere.fromTuple = function(tuple) {
     var applicationSphere = new ApplicationSphere(tuple[0], tuple[1], tuple[2], tuple[3], tuple[4]);
     // use addCompany to add all the companies
@@ -182,29 +178,8 @@ ApplicationSphere.fromTuple = function(tuple) {
     }
     return applicationSphere;
 };
-function randomPointInSphere(center, R) {
-    // Generate a random angle θ between 0 and 2π
-    let theta = Math.random() * 2 * Math.PI;
 
-    // Generate a random angle φ between 0 and π
-    let phi = Math.random() * Math.PI;
 
-    // Generate a random value u between 0 and 1 and compute the radius r
-    let u = Math.random();
-    let r = R * Math.cbrt(u); // Use the cube root of u to ensure uniform distribution
-
-    // Convert spherical coordinates to Cartesian coordinates
-    let x = r * Math.sin(phi) * Math.cos(theta);
-    let y = r * Math.sin(phi) * Math.sin(theta);
-    let z = r * Math.cos(phi);
-
-    // Translate the point to be centered at (center.x, center.y, center.z)
-    x += center.x;
-    y += center.y;
-    z += center.z;
-
-    return { x: x, y: y, z: z };
-}
 
 ApplicationSphere.prototype.addCompany = function(companyDataTuple) {
     // companyDataTuple is a tuple of the form [x, y, z, radius, companyData]
@@ -222,7 +197,9 @@ var processData = function(data) {
     // data is structured as an array of application sphere tuples
     for (var i = 0; i < data.length; i++) {
         applicationSpheres.push(ApplicationSphere.fromTuple(data[i]));
+        //console.log("Application sphere added: ", data[i]);
     }
+    window.applicationSpheres = applicationSpheres;
 };
 
 // The updated distance function using objects

@@ -23,7 +23,7 @@ server.listen(3000, () => {
 var csv = require('csv-parser');
 
 // file name: gendata.csv
-var filename = 'gendata.csv';
+var filename = 'newgendata.csv';
 var data = [];
 var dist = function(x,x1,y,y1,z,z1){
     return Math.sqrt(Math.pow(x-x1,2)+Math.pow(y-y1,2)+Math.pow(z-z1,2));
@@ -88,6 +88,27 @@ applicationSphereServerSide.prototype.addCompany = function(companyData) {
 applicationSphereServerSide.prototype.toTuple = function() {
     return [this.x, this.y, this.z, this.radius, this.application, this.companies.map((company) => company.toTuple())];
 };
+function randomPointOnTopFaceOfCylinder(center, R, H) {
+    // our goal is to place spheres that rest on the top face of the cylinder, this function will generate the coordinates of a random point on the top face of the cylinder
+    // Generate a random angle θ between 0 and 2π
+    // Center is an object with x, y, z properties
+    let theta = Math.random() * 2 * Math.PI;
+    
+    // Generate a random value u between 0 and 1
+    let u = Math.random();
+
+    // Convert cylindrical coordinates to Cartesian coordinates
+    let x = R * Math.cos(theta);
+    let y = R * Math.sin(theta);
+    let z = H / 2;
+
+    // Translate the point to be centered at (center.x, center.y, center.z)
+    x += center.x;
+    y += center.y;
+    z += center.z;
+
+    return { x: x, y: y, z: z };
+};
 function randomPointInSphere(center, R) {
     // Generate a random angle θ between 0 and 2π
     let theta = Math.random() * 2 * Math.PI;
@@ -112,44 +133,61 @@ function randomPointInSphere(center, R) {
     return { x: x, y: y, z: z };
 }
 
+/*  We will be placing application spheres spiraling out from the center of the scene. 
+    Each application sphere's radius will be based on the number of companies that use that application. 
+    We need a function that generates the next point on the spiral based off of the radius of the 
+    current application sphere and the radius of the next application sphere in order for the spheres
+    to not overlap.We are spiraling outward from the origin, so we can use the equation of a spiral
+*/
+
+var generateNextSpiralPoint = function(currentPoint, currentRadius, nextRadius, count) {
+    // Generate the next point on the spiral
+    // x = r * cos(θ)
+    // y = r * sin(θ)
+    // r = a + bθ
+    // a = currentRadius
+    // b = (nextRadius - currentRadius) / (2π)
+    // θ = count
+    // x = (currentRadius + ((nextRadius - currentRadius) / (2π)) * count) * cos(count)
+    // y = (currentRadius + ((nextRadius - currentRadius) / (2π)) * count) * sin(count)
+    var a = currentRadius;
+    var b = (nextRadius - currentRadius) / (2 * Math.PI);
+    var x = (a + b * count) * Math.cos(count * 2 * Math.PI);
+    var y = (a + b * count) * Math.sin(count * 2 * Math.PI);
+    return { x: x, y: y, z: 0 }; // We are working in 2D for now
+};
+
 var generateApplicationSpheres = function(data) {
     var applications = {}; // This will be used to store the unique applications
     for (var i = 0; i < data.length; i++) {
-        applications[data[i].applications] = 1;
+        applications[data[i].applications] = applications[data[i].applications] ? applications[data[i].applications] + 1 : 1; // Count the number of companies that use each application
     }
-    applications = Object.keys(applications); // Get the array of unique applications
-    console.log(applications);
+    var applicationsArray = Object.keys(applications); // Get the array of unique applications
+    console.log(applicationsArray);
     var applicationSpheres = [];
-    var applicationSphereRadius = 50;
+    
 
-    for (var i = 0; i < applications.length; i++) {
-        var x, y, z;
-        var attempts = 0;
-        var tooClose;
-        do {
-            var randomPoint = randomPointInSphere({ x: 0, y: 0, z: 0 }, 500);
-            x = randomPoint.x;
-            y = randomPoint.y;
-            z = randomPoint.z;
-            attempts++;
-
-            tooClose = applicationSpheres.some((sphere) => {
-                return distObj({ x: x, y: y, z: z }, sphere) < applicationSphereRadius * 2;
-            });
-        } while (attempts < 100 && tooClose);
-
-        if (!tooClose) {
-            var newApplicationSphere = new applicationSphereServerSide(
-                x, y, z,
-                applicationSphereRadius,
-                applications[i]
-            );
-            applicationSpheres.push(newApplicationSphere);
-        } else {
-            console.log("Failed to place application sphere after 100 attempts.");
-        }
+    for (let i = 0; i < applicationsArray.length; i++) {
+        // generate the application spheres, we dont care where they are positioned currently. initialize them all at (0,0,0)
+        let x = 0, y = 0, z = 0;
+        let applicationSphereRadius = Math.max(1, applications[applicationsArray[i]] * 5);
+        let applicationSphere = new applicationSphereServerSide(x, y, z, applicationSphereRadius, applicationsArray[i]);
+        applicationSpheres.push(applicationSphere);
     }
-
+    // sort the applicationspheres from most companies to least companies
+    applicationSpheres.sort((a, b) => applications[b.application] - applications[a.application]);
+    // reassign the positions of the application spheres to be in a spiral
+    for (var i = 1; i < applicationSpheres.length; i++) {
+        var curApplicationSphere = applicationSpheres[i - 1];
+        var currentPoint = { x: curApplicationSphere.x, y: curApplicationSphere.y, z: curApplicationSphere.z };
+        var currentRadius = curApplicationSphere.radius;
+        var nextRadius = applicationSpheres[i].radius;
+        var nextPoint = generateNextSpiralPoint(currentPoint, currentRadius, nextRadius, i);
+        applicationSpheres[i].x = nextPoint.x;
+        applicationSpheres[i].y = nextPoint.y;
+        applicationSpheres[i].z = nextPoint.z;
+    }
+    // assign companies to application spheres
     for (var i = 0; i < data.length; i++) {
         var foundApplicationSphere = false;
         for (var j = 0; j < applicationSpheres.length; j++) {
