@@ -165,7 +165,7 @@ class ApplicationSphere {
         });
         var textMaterial = new THREE.MeshBasicMaterial({color: 0xFFFFFF});
         var textMesh = new THREE.Mesh(text, textMaterial);
-        textMesh.position.set(x, y, z);
+        textMesh.position.set(x + radius, y, z);
         scene.add(textMesh);
         this.textMesh = textMesh;
     }

@@ -176,12 +176,10 @@ var generateApplicationSpheres = function(data) {
     var applicationsArray = Object.keys(applications); // Get the array of unique applications
     console.log(applicationsArray);
     var applicationSpheres = [];
-    
-
     for (let i = 0; i < applicationsArray.length; i++) {
         // generate the application spheres, we dont care where they are positioned currently. initialize them all at (0,0,0)
         let x = 0, y = 0, z = 0;
-        let applicationSphereRadius = Math.max(1, applications[applicationsArray[i]] * 5);
+        let applicationSphereRadius = Math.min(60,Math.max(5, applications[applicationsArray[i]] * 3));
         let applicationSphere = new applicationSphereServerSide(x, y, z, applicationSphereRadius, applicationsArray[i]);
         applicationSpheres.push(applicationSphere);
     }
@@ -212,10 +210,15 @@ var generateApplicationSpheres = function(data) {
             console.log("Failed to find application sphere for company: ", data[i].company);
         }
     }
+    // only save 20 applicationSpheres
+    applicationSpheres = applicationSpheres.slice(0, 20);
+
     applicationSpheres.forEach((sphere) => {
         sphere.companies.sort((a, b) => a.companyData.mosaic - b.companyData.mosaic);
+        // only save the first 20 companies
+        sphere.companies = sphere.companies.slice(0, 20);
     });
-
+        
     var translateToOrigin = function(point, origin) {
         return {
             x: point.x - origin.x,
