@@ -81,7 +81,7 @@ function animate() {
     var delta = (time - prevTime) / 30;
 
     const direction = controls.getDirection(new THREE.Vector3(0, 0, -1)).clone();
-    const speed = 0.5;
+    const speed = 5;
 
     if (isPressed['W']) { // forward
         camera.position.add(direction.multiplyScalar(speed));

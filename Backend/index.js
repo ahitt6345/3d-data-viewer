@@ -62,7 +62,7 @@ var applicationSphereServerSide = function(x,y,z,radius, application) {
 };
 applicationSphereServerSide.prototype.addCompany = function(companyData) {
     var applicationSphereRadius = this.radius;
-    var newCompanySphereRadius = Math.max(1,(companyData.mosaic / 1000) * 5);
+    var newCompanySphereRadius = Math.max(1,(companyData.mosaic / 1000) * (applicationSphereRadius / 15));
     var spawnRadius = applicationSphereRadius - newCompanySphereRadius;
     var x, y, z;
     var attempts = 0; // prevent infinite loop
@@ -140,22 +140,33 @@ function randomPointInSphere(center, R) {
     to not overlap.We are spiraling outward from the origin, so we can use the equation of a spiral
 */
 
-var generateNextSpiralPoint = function(currentPoint, currentRadius, nextRadius, count) {
-    // Generate the next point on the spiral
-    // x = r * cos(θ)
-    // y = r * sin(θ)
-    // r = a + bθ
-    // a = currentRadius
-    // b = (nextRadius - currentRadius) / (2π)
-    // θ = count
-    // x = (currentRadius + ((nextRadius - currentRadius) / (2π)) * count) * cos(count)
-    // y = (currentRadius + ((nextRadius - currentRadius) / (2π)) * count) * sin(count)
-    var a = currentRadius;
-    var b = (nextRadius - currentRadius) / (2 * Math.PI);
-    var x = (a + b * count) * Math.cos(count * 2 * Math.PI);
-    var y = (a + b * count) * Math.sin(count * 2 * Math.PI);
-    return { x: x, y: y, z: 0 }; // We are working in 2D for now
+var generateNextSpiralPoint = function(currentPoint, currentRadius, nextRadius, index) {
+    // Spiral parameters
+    var spacing = 1.3; // Additional spacing to make it look nice (you can adjust this value)
+    var angle = 90.5 * (Math.PI / 180); // Fixed angle in radians (110 degrees)
+
+    // Calculate the distance needed to avoid overlap
+    var r = (currentRadius + nextRadius) * spacing;
+
+    // Calculate the angle relative to the origin
+    var dx = currentPoint.x;
+    var dz = currentPoint.z;
+    var currentAngle = Math.atan2(dz, dx);
+
+    // Calculate the new angle by adding the fixed angle to the current angle
+    var newAngle = currentAngle + angle;
+
+    // Calculate the new coordinates in the spiral (X-Z plane)
+    var x = currentPoint.x + r * Math.cos(newAngle);
+    var z = currentPoint.z + r * Math.sin(newAngle);
+    var y = currentPoint.y; // Keeping y constant
+
+    return { x: x, y: y, z: z };
 };
+
+
+
+
 
 var generateApplicationSpheres = function(data) {
     var applications = {}; // This will be used to store the unique applications
@@ -201,8 +212,65 @@ var generateApplicationSpheres = function(data) {
             console.log("Failed to find application sphere for company: ", data[i].company);
         }
     }
+    applicationSpheres.forEach((sphere) => {
+        sphere.companies.sort((a, b) => a.companyData.mosaic - b.companyData.mosaic);
+    });
+
+    var translateToOrigin = function(point, origin) {
+        return {
+            x: point.x - origin.x,
+            y: point.y - origin.y,
+            z: point.z - origin.z
+        };
+    }
+    
+    // Function to translate a point back to the original position
+    var translateFromOrigin = function(point, origin) {
+        return {
+            x: point.x + origin.x,
+            y: point.y + origin.y,
+            z: point.z + origin.z
+        };
+    }
+    // Have the company spheres spiral out from the center of the application spheres by changing the coordinates of the company spheres using the generateNextSpiralPoint function
+for (var i = 0; i < applicationSpheres.length; i++) {
+    var applicationSphere = applicationSpheres[i];
+    var companies = applicationSphere.companies;
+    
+    if (companies.length > 0) {
+        // Set the initial position of the first company sphere to the center of the application sphere
+        companies[0].x = applicationSphere.x;
+        companies[0].y = applicationSphere.y;
+        companies[0].z = applicationSphere.z;
+        
+        for (var j = 1; j < companies.length; j++) {
+            var prevCompanySphere = companies[j - 1];
+            var curCompanySphere = companies[j];
+            
+            // Translate the previous company sphere to the origin
+            var origin = { x: applicationSphere.x, y: applicationSphere.y, z: applicationSphere.z };
+            var translatedPrevPoint = translateToOrigin({ x: prevCompanySphere.x, y: prevCompanySphere.y, z: prevCompanySphere.z }, origin);
+            
+            // Calculate the next point in the spiral at the origin
+            var currentRadius = prevCompanySphere.radius;
+            var nextRadius = curCompanySphere.radius;
+            var nextPoint = generateNextSpiralPoint(translatedPrevPoint, currentRadius, nextRadius, j);
+            
+            // Translate the next point back from the origin
+            var finalNextPoint = translateFromOrigin(nextPoint, origin);
+            
+            // Update the current company sphere's position
+            curCompanySphere.x = finalNextPoint.x;
+            curCompanySphere.y = finalNextPoint.y;
+            curCompanySphere.z = finalNextPoint.z;
+        }
+    }
+}
+
     // Structured as: [x, y, z, radius, application, [companies]]
-    return applicationSpheres.map((sphere) => sphere.toTuple());
+    var result = applicationSpheres.map((sphere) => sphere.toTuple());
+    console.log(JSON.stringify(result));
+    return result;
 };
 
 var dataAvailable = false;
@@ -210,6 +278,23 @@ var applicationSpheres = [];
 fs.createReadStream(filename).pipe(csv()).on('data', (row) => { // This will most likely be a database in the future, but for now it's a csv file :P
     // we want to create a data structure like this:
     // data = [ { company: '...', industry: '...', mosaic: '...', applications: '...', total_funding: '...' }, ...]
+
+    var applications = row['Applications'].trim().split(',');
+    if (applications.length > 1) {
+        // if there are multiple applications, we want to add the same row multiple times with each application
+        applications.forEach((application) => {
+            var filteredRow = {
+                company: row['Companies'],
+                industry: row['Industry'],
+                mosaic: +row['Mosaic (Overall)'],
+                applications: application,
+                total_funding: +row['Total Funding']
+            };
+            data.push(filteredRow);
+        });
+        return;
+    }
+    applications = applications[0];
     var filteredRow = {
         company: row['Companies'],
         industry: row['Industry'],
