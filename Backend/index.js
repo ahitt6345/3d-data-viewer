@@ -265,51 +265,62 @@ var generateApplicationSpheres = function (data) {
 	for (var i = 0; i < applicationSpheres.length; i++) {
 		var applicationSphere = applicationSpheres[i];
 		var companies = applicationSphere.companies;
+		var cylinderHeight = applicationSphere.radius;
+		var cylinderRadius = applicationSphere.radius;
+		placeSpheresInSpiral(
+			{
+				height: cylinderHeight,
+				radius: cylinderRadius,
+				x: applicationSphere.x,
+				y: applicationSphere.y,
+				z: applicationSphere.z,
+			},
+			companies
+		);
+		// if (companies.length > 0) {
+		// 	// Set the initial position of the first company sphere to the center of the application sphere
+		// 	companies[0].x = applicationSphere.x;
+		// 	companies[0].y = applicationSphere.y;
+		// 	companies[0].z = applicationSphere.z;
 
-		if (companies.length > 0) {
-			// Set the initial position of the first company sphere to the center of the application sphere
-			companies[0].x = applicationSphere.x;
-			companies[0].y = applicationSphere.y;
-			companies[0].z = applicationSphere.z;
+		// 	for (var j = 1; j < companies.length; j++) {
+		// 		var prevCompanySphere = companies[j - 1];
+		// 		var curCompanySphere = companies[j];
 
-			for (var j = 1; j < companies.length; j++) {
-				var prevCompanySphere = companies[j - 1];
-				var curCompanySphere = companies[j];
+		// 		// Translate the previous company sphere to the origin
+		// 		var origin = {
+		// 			x: applicationSphere.x,
+		// 			y: applicationSphere.y,
+		// 			z: applicationSphere.z,
+		// 		};
+		// 		var translatedPrevPoint = translateToOrigin(
+		// 			{
+		// 				x: prevCompanySphere.x,
+		// 				y: prevCompanySphere.y,
+		// 				z: prevCompanySphere.z,
+		// 			},
+		// 			origin
+		// 		);
 
-				// Translate the previous company sphere to the origin
-				var origin = {
-					x: applicationSphere.x,
-					y: applicationSphere.y,
-					z: applicationSphere.z,
-				};
-				var translatedPrevPoint = translateToOrigin(
-					{
-						x: prevCompanySphere.x,
-						y: prevCompanySphere.y,
-						z: prevCompanySphere.z,
-					},
-					origin
-				);
+		// 		// Calculate the next point in the spiral at the origin
+		// 		var currentRadius = prevCompanySphere.radius;
+		// 		var nextRadius = curCompanySphere.radius;
+		// 		var nextPoint = generateNextSpiralPoint(
+		// 			translatedPrevPoint,
+		// 			currentRadius,
+		// 			nextRadius,
+		// 			j
+		// 		);
 
-				// Calculate the next point in the spiral at the origin
-				var currentRadius = prevCompanySphere.radius;
-				var nextRadius = curCompanySphere.radius;
-				var nextPoint = generateNextSpiralPoint(
-					translatedPrevPoint,
-					currentRadius,
-					nextRadius,
-					j
-				);
+		// 		// Translate the next point back from the origin
+		// 		var finalNextPoint = translateFromOrigin(nextPoint, origin);
 
-				// Translate the next point back from the origin
-				var finalNextPoint = translateFromOrigin(nextPoint, origin);
-
-				// Update the current company sphere's position
-				curCompanySphere.x = finalNextPoint.x;
-				curCompanySphere.y = finalNextPoint.y;
-				curCompanySphere.z = finalNextPoint.z;
-			}
-		}
+		// 		// Update the current company sphere's position
+		// 		curCompanySphere.x = finalNextPoint.x;
+		// 		curCompanySphere.y = finalNextPoint.y;
+		// 		curCompanySphere.z = finalNextPoint.z;
+		// 	}
+		// }
 	}
 
 	// Structured as: [x, y, z, radius, application, [companies]]
@@ -317,6 +328,26 @@ var generateApplicationSpheres = function (data) {
 	console.log(JSON.stringify(result));
 	return result;
 };
+
+function placeSpheresInSpiral(cylinder, spheres) {
+	const cylinderHeight = cylinder.height;
+	const cylinderRadius = cylinder.radius;
+	const numSpheres = spheres.length;
+	const turns = 3; // Number of complete turns around the cylinder
+	const angleStep = (2 * Math.PI * turns) / numSpheres;
+	const heightStep = cylinderHeight / numSpheres;
+
+	for (let i = 0; i < numSpheres; i++) {
+		const angle = i * angleStep;
+		const y = cylinder.y + cylinderHeight / 2 - i * heightStep;
+		const x = cylinder.x + cylinderRadius * Math.cos(angle);
+		const z = cylinder.z + cylinderRadius * Math.sin(angle);
+
+		spheres[i].x = x;
+		spheres[i].y = y;
+		spheres[i].z = z;
+	}
+}
 
 var dataAvailable = false;
 var applicationSpheres = [];
@@ -359,7 +390,7 @@ fs.createReadStream(filename)
 	});
 
 // use socket.io to send data to the frontend
-var datIsAvailable = false;
+var dataIsAvailable = false;
 io.on("connection", (socket) => {
 	console.log("a user connected");
 	socket.on("getdata", () => {

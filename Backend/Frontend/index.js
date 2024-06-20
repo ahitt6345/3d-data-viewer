@@ -153,7 +153,7 @@ function animate() {
 		camera.position.y -= speed;
 	}
 	renderer.render(scene, camera);
-	// display camera coordinates in the bottom right corner of the canvas
+	// display camera coordinates in the bottom right corner of the canvas for debugging purposes
 	var cameraPosition = camera.position;
 	var cameraPositionString =
 		"Camera position: (" +
@@ -256,7 +256,7 @@ class ApplicationSphere {
 			);
 		}
 		this.sphere = new THREE.Mesh(
-			new THREE.CylinderGeometry(radius, radius, 1, 32),
+			new THREE.CylinderGeometry(radius, radius, radius, 32),
 			new THREE.MeshBasicMaterial({
 				color: 0xff0000,
 				opacity: 0.5,
@@ -344,7 +344,7 @@ function reorderAndRepositionCompanySpheres() {
 		};
 	};
 	applicationSpheres.forEach((applicationSphere) => {
-		applicationSphere.companies.sort((a, b) => {
+		applicationSphere.companies.sort((b, a) => {
 			return a.companyData[order] - b.companyData[order];
 		});
 
@@ -420,6 +420,8 @@ function reorderAndRepositionCompanySpheres() {
 				nextPosition.y,
 				nextPosition.z
 			);
+
+			// Update the radius of the current company sphere using resize
 		}
 	});
 
@@ -458,10 +460,29 @@ var generateNextSpiralPoint = function (
 	// Calculate the new coordinates in the spiral (X-Z plane)
 	var x = currentPoint.x + r * Math.cos(newAngle);
 	var z = currentPoint.z + r * Math.sin(newAngle);
-	var y = currentPoint.y; // Keeping y constant
+	var y = index * 0.75; // Keeping y constant
 
 	return { x: x, y: y, z: z };
 };
+// used on the server end to generate the spiral points
+// function placeSpheresInSpiral(cylinder, spheres) {
+// 	const cylinderHeight = cylinder.height;
+// 	const cylinderRadius = cylinder.radius;
+// 	const numSpheres = spheres.length;
+// 	const turns = 3; // Number of complete turns around the cylinder
+// 	const angleStep = (2 * Math.PI * turns) / numSpheres;
+// 	const heightStep = cylinderHeight / numSpheres;
+
+// 	for (let i = 0; i < numSpheres; i++) {
+// 		const angle = i * angleStep;
+// 		const y = cylinderHeight / 2 - i * heightStep;
+// 		const x = cylinderRadius * Math.cos(angle);
+// 		const z = cylinderRadius * Math.sin(angle);
+
+// 		spheres[i].sphere.position.set(x, y, z);
+// 	}
+// }
+
 // The updated distance function using objects
 var distObj = function (point1, point2) {
 	return Math.sqrt(
