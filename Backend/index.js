@@ -265,7 +265,7 @@ var generateApplicationSpheres = function (data) {
 	for (var i = 0; i < applicationSpheres.length; i++) {
 		var applicationSphere = applicationSpheres[i];
 		var companies = applicationSphere.companies;
-		var cylinderHeight = applicationSphere.radius;
+		var cylinderHeight = Math.max(applicationSphere.radius, 40); //applicationSphere.radius;
 		var cylinderRadius = applicationSphere.radius;
 		placeSpheresInSpiral(
 			{

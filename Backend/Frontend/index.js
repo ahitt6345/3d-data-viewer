@@ -178,10 +178,12 @@ var CompanySphere = function (x, y, z, radius, companyData, application) {
 			transparent: true,
 		})
 	);
-	// check if coordinates are real numbers
-	// search for the application sphere with the same name as the applicationName
-	var appSphere = application.sphere;
 	this.sphere.position.set(x, y, z);
+
+	var appSphere = application.sphere;
+	this.applicationSphere = appSphere;
+
+	// Create the initial line
 	var material = new THREE.LineBasicMaterial({ color: 0x0000ff });
 	var points = [];
 	points.push(
@@ -193,23 +195,26 @@ var CompanySphere = function (x, y, z, radius, companyData, application) {
 	);
 	points.push(new THREE.Vector3(x, y, z));
 	var geometry = new THREE.BufferGeometry().setFromPoints(points);
-	var line = new THREE.Line(geometry, material);
-	scene.add(line);
-	// write the company name on the sphere using threejs text
+	this.line = new THREE.Line(geometry, material);
+
+	// Add the initial line to the scene
+	scene.add(this.line);
+
+	// Create and position the text mesh
 	var text = new TextGeometry(companyData.company, {
 		font: helvetikerFont,
 		size: 1,
 		depth: 0.1,
 	});
 	var textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-	var textMesh = new THREE.Mesh(text, textMaterial);
-	textMesh.position.set(x, y, z);
-	scene.add(textMesh);
+	this.textMesh = new THREE.Mesh(text, textMaterial);
+	this.textMesh.position.set(x, y, z);
+	scene.add(this.textMesh);
+
 	this.companyData = companyData;
+
+	// Add the sphere to the scene
 	scene.add(this.sphere);
-	this.applicationSphere = appSphere;
-	// link text to this sphere
-	this.textMesh = textMesh;
 };
 
 CompanySphere.fromTuple = function (tuple) {
@@ -222,11 +227,18 @@ CompanySphere.prototype.updatePosition = function (x, y, z) {
 			"Invalid coordinates for company sphere: ",
 			this.companyData
 		);
-		// console.log("Coordinates: ", x, y, z);
-		// console.log("Application sphere: ", this.applicationSphere.sphere);
 	}
+
+	// Update position of the sphere and text mesh
 	this.sphere.position.set(x, y, z);
 	this.textMesh.position.set(x, y, z);
+
+	// Remove the old line
+	if (this.line) {
+		scene.remove(this.line);
+	}
+
+	// Create a new line from the application sphere to the new position
 	var appSphere = this.applicationSphere;
 	var material = new THREE.LineBasicMaterial({ color: 0x0000ff });
 	var points = [];
@@ -239,13 +251,12 @@ CompanySphere.prototype.updatePosition = function (x, y, z) {
 	);
 	points.push(new THREE.Vector3(x, y, z));
 	var geometry = new THREE.BufferGeometry().setFromPoints(points);
-	var line = new THREE.Line(geometry, material);
-	scene.add(line);
+	this.line = new THREE.Line(geometry, material);
 
-	// remove the old line
-	scene.remove(this.line);
-	this.line = line;
+	// Add the new line to the scene
+	scene.add(this.line);
 };
+
 class ApplicationSphere {
 	constructor(x, y, z, radius, application) {
 		this.companies = [];
@@ -255,8 +266,9 @@ class ApplicationSphere {
 				application
 			);
 		}
+		var height = radius * 2.5;
 		this.sphere = new THREE.Mesh(
-			new THREE.CylinderGeometry(radius, radius, radius, 32),
+			new THREE.CylinderGeometry(radius, radius, height, 32),
 			new THREE.MeshBasicMaterial({
 				color: 0xff0000,
 				opacity: 0.5,
@@ -314,6 +326,8 @@ var processData = function (data) {
 		applicationSpheres.push(ApplicationSphere.fromTuple(data[i]));
 		//console.log("Application sphere added: ", applicationSpheres[i]);
 	}
+	rotateSpheresToFaceNext(applicationSpheres);
+	positionCompaniesAroundCylinder(applicationSpheres);
 	window.applicationSpheres = applicationSpheres;
 };
 
@@ -464,6 +478,52 @@ var generateNextSpiralPoint = function (
 
 	return { x: x, y: y, z: z };
 };
+function positionCompaniesAroundCylinder(applicationSpheres) {
+	const heightStep = 2; // Distance between each company along the height of the cylinder
+	const radiusOffset = 1.2; // Offset from the surface of the cylinder
+
+	applicationSpheres.forEach((appSphere) => {
+		const appRadius = appSphere.sphere.geometry.parameters.radiusTop; // Assuming the cylinder's top radius
+		const appHeight = appSphere.sphere.geometry.parameters.height;
+		const numberOfCompanies = appSphere.companies.length; // Dynamic number of companies
+
+		appSphere.companies.forEach((company, index) => {
+			const angle = (index / numberOfCompanies) * Math.PI * 2;
+			const height = ((index * heightStep) % appHeight) - appHeight / 2;
+
+			const localX = (appRadius + radiusOffset) * Math.cos(angle);
+			const localY = height;
+			const localZ = (appRadius + radiusOffset) * Math.sin(angle);
+
+			const position = new THREE.Vector3(localX, localY, localZ);
+			position.applyQuaternion(appSphere.sphere.quaternion); // Rotate to match the cylinder's orientation
+			position.add(appSphere.sphere.position); // Translate to the cylinder's position
+
+			company.updatePosition(position.x, position.y, position.z);
+		});
+	});
+}
+function rotateSpheresToFaceNext(spheres) {
+	for (let i = 1; i < spheres.length - 1; i++) {
+		let currentSphere = spheres[i].sphere;
+		let nextSphere = spheres[i + 1].sphere;
+
+		// Calculate the direction vector from current to next sphere
+		let direction = new THREE.Vector3();
+		direction
+			.subVectors(nextSphere.position, currentSphere.position)
+			.normalize();
+
+		// Calculate the quaternion to rotate the cylinder
+		let up = new THREE.Vector3(0, 1, 0); // Assuming the cylinder is initially aligned with the Y-axis
+		let quaternion = new THREE.Quaternion();
+		quaternion.setFromUnitVectors(up, direction);
+
+		// Apply the quaternion rotation to the current sphere
+		currentSphere.quaternion.copy(quaternion);
+	}
+}
+
 // used on the server end to generate the spiral points
 // function placeSpheresInSpiral(cylinder, spheres) {
 // 	const cylinderHeight = cylinder.height;
