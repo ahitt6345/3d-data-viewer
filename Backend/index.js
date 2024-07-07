@@ -77,16 +77,13 @@ var applicationSphereServerSide = function (x, y, z, radius, application) {
 	this.x = x;
 	this.y = y;
 	this.z = z;
-	this.radius = radius;
+	this.radius = 120;
 	this.application = application;
 	this.companies = [];
 };
 applicationSphereServerSide.prototype.addCompany = function (companyData) {
 	var applicationSphereRadius = this.radius;
-	var newCompanySphereRadius = Math.max(
-		1,
-		(companyData.mosaic / 1000) * (applicationSphereRadius / 15)
-	);
+	var newCompanySphereRadius = 30;
 	var x, y, z;
 	[x, y, z] = [0, 0, 0];
 	// var spawnRadius = applicationSphereRadius - newCompanySphereRadius;
@@ -114,9 +111,6 @@ applicationSphereServerSide.prototype.addCompany = function (companyData) {
 		this
 	);
 	this.companies.push(newCompanySphere);
-	// } else {
-	//     console.log("Failed to place company sphere within application sphere after 100 attempts.");
-	// }
 };
 applicationSphereServerSide.prototype.toTuple = function () {
 	return [
@@ -143,8 +137,8 @@ var generateNextSpiralPoint = function (
 	index
 ) {
 	// Spiral parameters
-	var spacing = 1.3; // Additional spacing to make it look nice (you can adjust this value)
-	var angle = 90.5 * (Math.PI / 180); // Fixed angle in radians (110 degrees)
+	var spacing = 0.55; // Additional spacing to make it look nice (you can adjust this value)
+	var angle = 90.05 * (Math.PI / 180); // Fixed angle in radians (90.05 degrees)
 
 	// Calculate the distance needed to avoid overlap
 	var r = (currentRadius + nextRadius) * spacing;
@@ -180,10 +174,9 @@ var generateApplicationSpheres = function (data) {
 		let x = 0,
 			y = 0,
 			z = 0;
-		let applicationSphereRadius = Math.min(
-			60,
-			Math.max(5, applications[applicationsArray[i]] * 3)
-		);
+		let applicationSphereRadius =
+			Math.min(60, Math.max(5, applications[applicationsArray[i]] * 3)) *
+			2;
 		let applicationSphere = new applicationSphereServerSide(
 			x,
 			y,

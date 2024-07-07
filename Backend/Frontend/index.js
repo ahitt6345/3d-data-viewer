@@ -36,7 +36,17 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 camera.position.z = 10;
+var light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(0, 0, 60);
+light.target.position.set(0, 0, 0);
+window.light = light;
+scene.add(light);
 
+light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(0, 50, 60);
+light.target.position.set(0, 0, 0);
+window.light = light;
+scene.add(light);
 var isPressed = {};
 
 document.body.onload = function () {
@@ -171,7 +181,7 @@ function animate() {
 animate();
 var CompanySphere = function (x, y, z, radius, companyData, application) {
 	this.sphere = new THREE.Mesh(
-		new THREE.SphereGeometry(radius, 32, 32),
+		new THREE.SphereGeometry(15, 32, 32),
 		new THREE.MeshBasicMaterial({
 			color: 0xffff00,
 			opacity: 0.5,
@@ -327,9 +337,253 @@ var processData = function (data) {
 		//console.log("Application sphere added: ", applicationSpheres[i]);
 	}
 	rotateSpheresToFaceNext(applicationSpheres);
-	positionCompaniesAroundCylinder(applicationSpheres);
+	// positionCompaniesAroundCylinder(applicationSpheres);
+
+	const { spline, segments } = createSpiralTube(applicationSpheres);
+	placeCompaniesAndInsertDisks(applicationSpheres, spline, segments);
+	// remove all applicationcylinders from the scene
+	applicationSpheres.forEach((appSphere) => {
+		scene.remove(appSphere.sphere);
+		// remove all the company sphere's lines from the scene
+		appSphere.companies.forEach((company) => {
+			scene.remove(company.line);
+		});
+	});
 	window.applicationSpheres = applicationSpheres;
 };
+// function placeCompaniesAndInsertDisks( // somewhat working
+// 	applicationSpheres,
+// 	spline,
+// 	segments,
+// 	options = {}
+// ) {
+// 	const {
+// 		spiralTurns = 2,
+// 		heightStep = 0.5,
+// 		radiusOffset = 120,
+// 		diskRadius = 135,
+// 		diskHeight = 0.2,
+// 	} = options;
+
+// 	// Calculate FrenetFrames for the spline
+// 	const frames = spline.computeFrenetFrames(segments, true);
+
+// 	// Material for disks
+// 	const diskMaterial = new THREE.MeshBasicMaterial({
+// 		color: 0x0000ff,
+// 		opacity: 0.5,
+// 		transparent: true,
+// 	});
+
+// 	applicationSpheres.forEach((appSphere, appIndex) => {
+// 		const numCompanies = appSphere.companies.length;
+
+// 		appSphere.companies.forEach((company, companyIndex) => {
+// 			// Calculate the position along the spline
+// 			const t =
+// 				(appIndex + companyIndex / numCompanies) /
+// 				applicationSpheres.length;
+// 			const point = spline.getPointAt(t);
+// 			const segment = Math.floor(t * (frames.tangents.length - 1));
+// 			const tangent = frames.tangents[segment];
+// 			const normal = frames.normals[segment];
+// 			const binormal = frames.binormals[segment];
+
+// 			// Calculate the angle and position for wrapping the company around the spiral's circumference
+// 			const angle =
+// 				(companyIndex / numCompanies) * Math.PI * 2 * spiralTurns;
+// 			const xOffset = radiusOffset * Math.cos(angle);
+// 			const yOffset = heightStep * companyIndex;
+// 			const zOffset = radiusOffset * Math.sin(angle);
+
+// 			// Calculate the final position by adding the offsets to the spline point
+// 			const position = new THREE.Vector3()
+// 				.copy(point)
+// 				.addScaledVector(normal, xOffset)
+// 				.addScaledVector(binormal, zOffset)
+// 				.setY(point.y + yOffset);
+
+// 			// Update the company's position
+// 			company.updatePosition(position.x, position.y, position.z);
+// 		});
+
+// 		// Insert a disk after the companies of the current ApplicationSphere
+// 		const t = (appIndex + 1) / applicationSpheres.length;
+// 		const point = spline.getPointAt(t);
+// 		const segment = Math.floor(t * (frames.tangents.length - 1));
+// 		const tangent = frames.tangents[segment];
+
+// 		// Create the disk geometry
+// 		const diskGeometry = new THREE.CylinderGeometry(
+// 			diskRadius,
+// 			diskRadius,
+// 			diskHeight,
+// 			32
+// 		);
+// 		const disk = new THREE.Mesh(diskGeometry, diskMaterial);
+
+// 		// Position the disk
+// 		disk.position.copy(point);
+
+// 		// Align the disk with the tangent
+// 		const axis = new THREE.Vector3(0, 1, 0);
+// 		const quaternion = new THREE.Quaternion().setFromUnitVectors(
+// 			axis,
+// 			tangent
+// 		);
+// 		disk.quaternion.copy(quaternion);
+
+// 		// Add the disk to the scene
+// 		scene.add(disk);
+
+// 		// move the application sphere's text mesh to the top of the disk
+// 		var x = point.x,
+// 			y = point.y + diskRadius + 0.5,
+// 			z = point.z;
+// 		appSphere.textMesh.position.set(x, y, z);
+// 	});
+// }
+
+function placeCompaniesAndInsertDisks(
+	applicationSpheres,
+	spline,
+	segments,
+	options = {}
+) {
+	const {
+		spiralTurns = 5,
+		radiusOffset = 130,
+		diskRadius = 135,
+		diskHeight = 0.2,
+		diskMaterial = new THREE.MeshBasicMaterial({
+			// Default disk material
+			color: 0x0000ff,
+			opacity: 0.5,
+			transparent: true,
+		}),
+		companySphereRadius = 15,
+	} = options;
+
+	// Calculate FrenetFrames for the spline
+	const frames = spline.computeFrenetFrames(segments, false); // Assuming closed path is false
+	// Calculate total number of companies across all application spheres
+	const totalCompanies = applicationSpheres.reduce(
+		(total, appSphere) => total + appSphere.companies.length,
+		0
+	);
+	let accumulatedT = 0; // Tracks the accumulated t along the spline
+	applicationSpheres.forEach((appSphere, appIndex) => {
+		const numCompanies = appSphere.companies.length;
+		const sphereSegmentLength = numCompanies / totalCompanies; // Proportion of the total spiral
+
+		appSphere.companies.forEach((company, companyIndex) => {
+			// Calculate the position along the spline
+			const t =
+				accumulatedT +
+				(companyIndex / numCompanies) * sphereSegmentLength;
+			const segmentIndex = Math.floor(t * segments);
+			const point = spline.getPointAt(t);
+			const normal = frames.normals[segmentIndex];
+			const binormal = frames.binormals[segmentIndex];
+
+			const angle = Math.PI * (1 + (companyIndex / numCompanies - 0.5));
+			const xOffset = radiusOffset * Math.cos(angle);
+			const zOffset = radiusOffset * Math.sin(angle);
+
+			const finalPosition = new THREE.Vector3()
+				.copy(point)
+				.addScaledVector(normal, xOffset)
+				.addScaledVector(binormal, zOffset);
+
+			// Update the company's position
+			company.sphere.position.copy(finalPosition);
+			//update the company's text mesh position
+			company.textMesh.position.copy(finalPosition);
+		});
+
+		// Place a disk at the end of each application sphere's segment
+		const tEnd = accumulatedT + sphereSegmentLength;
+		const endPoint = spline.getPointAt(tEnd);
+		const segmentDiskIndex = Math.floor(tEnd * segments);
+		const tangentDisk = frames.tangents[segmentDiskIndex];
+		const axis = new THREE.Vector3(0, 1, 0);
+		const quaternion = new THREE.Quaternion().setFromUnitVectors(
+			axis,
+			tangentDisk
+		);
+		// Adjust accumulatedT considering the company sphere diameter
+		accumulatedT += sphereSegmentLength;
+		placeDiskAt(endPoint, diskRadius, diskHeight, diskMaterial, quaternion);
+
+		// Move the application sphere's text mesh to the top of the disk
+		const pointDisk = spline.getPointAt(tEnd);
+		appSphere.textMesh.position.set(
+			pointDisk.x,
+			pointDisk.y + diskRadius + 0.5,
+			pointDisk.z
+		);
+	});
+}
+function placeDiskAt(
+	position,
+	radius,
+	height,
+	material,
+	quaternion,
+	diskHeight = 0.2
+) {
+	const diskGeometry = new THREE.CylinderGeometry(radius, radius, height, 32);
+	const disk = new THREE.Mesh(diskGeometry, material);
+	disk.position.copy(position);
+	disk.position.y += diskHeight / 2; // Adjust vertical position to sit on the spline
+	disk.quaternion.copy(quaternion);
+	scene.add(disk);
+}
+function createSpiralTube(applicationSpheres, options = {}) {
+	const {
+		initialRadius = 1,
+		finalRadius = 1,
+		segments = 200,
+		radialSegments = 32,
+	} = options;
+
+	// Collect the center points of all application spheres
+	const points = applicationSpheres.map((appSphere) =>
+		appSphere.sphere.position.clone()
+	);
+
+	// Create a CatmullRomCurve3 spline from the points
+	const spline = new THREE.CatmullRomCurve3(points);
+
+	// Define the radius for the TubeGeometry
+	const tubeRadius =
+		applicationSpheres[0].sphere.geometry.parameters.radiusTop;
+
+	// Create the TubeGeometry by extruding a cylinder along the spline
+	const tubeGeometry = new THREE.TubeGeometry(
+		spline,
+		segments,
+		tubeRadius,
+		radialSegments,
+		false
+	);
+
+	// Create the mesh material
+	const tubeMaterial = new THREE.MeshStandardMaterial({
+		color: 0xff0000,
+		opacity: 0.5,
+		transparent: true,
+		roughness: 0.5,
+	});
+
+	// Create the tube mesh
+	const tubeMesh = new THREE.Mesh(tubeGeometry, tubeMaterial);
+
+	// Add the tube mesh to the scene
+	scene.add(tubeMesh);
+
+	return { spline, segments };
+}
 
 var isMosaic = true;
 function reorderAndRepositionCompanySpheres() {
@@ -458,7 +712,7 @@ var generateNextSpiralPoint = function (
 	// }
 	// Spiral parameters
 	var spacing = 1.3; // Additional spacing to make it look nice (you can adjust this value)
-	var angle = 90.5 * (Math.PI / 180); // Fixed angle in radians (110 degrees)
+	var angle = 125.5 * (Math.PI / 180); // Fixed angle in radians (110 degrees)
 
 	// Calculate the distance needed to avoid overlap
 	var r = (currentRadius + nextRadius) * spacing;
