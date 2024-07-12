@@ -86,22 +86,6 @@ applicationSphereServerSide.prototype.addCompany = function (companyData) {
 	var newCompanySphereRadius = 30;
 	var x, y, z;
 	[x, y, z] = [0, 0, 0];
-	// var spawnRadius = applicationSphereRadius - newCompanySphereRadius;
-	// var x, y, z;
-	// var attempts = 0; // prevent infinite loop
-	// do {
-	//     // generate random point within the application sphere
-	//     var randomPoint = randomPointInSphere({ x: this.x, y: this.y, z: this.z }, spawnRadius);
-	//     x = randomPoint.x;
-	//     y = randomPoint.y;
-	//     z = randomPoint.z;
-	//     attempts++;
-	// } while (attempts < 100 && this.companies.some((sphere) => {
-	//     // make sure the spheres don't overlap
-	//     var distance = dist(x, sphere.x, y, sphere.y, z, sphere.z);
-	//     return distance < sphere.radius + newCompanySphereRadius;
-	// }));
-	// if (attempts < 100) {
 	var newCompanySphere = new companySphereServerSide(
 		x,
 		y,
