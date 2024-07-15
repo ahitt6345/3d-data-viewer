@@ -180,13 +180,14 @@ function animate() {
 
 animate();
 var CompanySphere = function (x, y, z, radius, companyData, application) {
+	// load company logo as texture from /ext/logos/{companyname}.png
+	var companystr = companyData.company.split(" ").join("_");
+	var texture = new THREE.TextureLoader().load(
+		"/ext/logos/" + companystr + ".png"
+	);
 	this.sphere = new THREE.Mesh(
-		new THREE.SphereGeometry(15, 32, 32),
-		new THREE.MeshBasicMaterial({
-			color: 0xffff00,
-			opacity: 0.5,
-			transparent: true,
-		})
+		new THREE.BoxGeometry(30, 30, 30),
+		new THREE.MeshBasicMaterial({ map: texture })
 	);
 	this.sphere.position.set(x, y, z);
 
@@ -290,7 +291,7 @@ class ApplicationSphere {
 		scene.add(this.sphere);
 		var text = new TextGeometry(application, {
 			font: helvetikerFont,
-			size: 1,
+			size: 20,
 			depth: 0.1,
 		});
 		var textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -351,98 +352,6 @@ var processData = function (data) {
 	});
 	window.applicationSpheres = applicationSpheres;
 };
-// function placeCompaniesAndInsertDisks( // somewhat working
-// 	applicationSpheres,
-// 	spline,
-// 	segments,
-// 	options = {}
-// ) {
-// 	const {
-// 		spiralTurns = 2,
-// 		heightStep = 0.5,
-// 		radiusOffset = 120,
-// 		diskRadius = 135,
-// 		diskHeight = 0.2,
-// 	} = options;
-
-// 	// Calculate FrenetFrames for the spline
-// 	const frames = spline.computeFrenetFrames(segments, true);
-
-// 	// Material for disks
-// 	const diskMaterial = new THREE.MeshBasicMaterial({
-// 		color: 0x0000ff,
-// 		opacity: 0.5,
-// 		transparent: true,
-// 	});
-
-// 	applicationSpheres.forEach((appSphere, appIndex) => {
-// 		const numCompanies = appSphere.companies.length;
-
-// 		appSphere.companies.forEach((company, companyIndex) => {
-// 			// Calculate the position along the spline
-// 			const t =
-// 				(appIndex + companyIndex / numCompanies) /
-// 				applicationSpheres.length;
-// 			const point = spline.getPointAt(t);
-// 			const segment = Math.floor(t * (frames.tangents.length - 1));
-// 			const tangent = frames.tangents[segment];
-// 			const normal = frames.normals[segment];
-// 			const binormal = frames.binormals[segment];
-
-// 			// Calculate the angle and position for wrapping the company around the spiral's circumference
-// 			const angle =
-// 				(companyIndex / numCompanies) * Math.PI * 2 * spiralTurns;
-// 			const xOffset = radiusOffset * Math.cos(angle);
-// 			const yOffset = heightStep * companyIndex;
-// 			const zOffset = radiusOffset * Math.sin(angle);
-
-// 			// Calculate the final position by adding the offsets to the spline point
-// 			const position = new THREE.Vector3()
-// 				.copy(point)
-// 				.addScaledVector(normal, xOffset)
-// 				.addScaledVector(binormal, zOffset)
-// 				.setY(point.y + yOffset);
-
-// 			// Update the company's position
-// 			company.updatePosition(position.x, position.y, position.z);
-// 		});
-
-// 		// Insert a disk after the companies of the current ApplicationSphere
-// 		const t = (appIndex + 1) / applicationSpheres.length;
-// 		const point = spline.getPointAt(t);
-// 		const segment = Math.floor(t * (frames.tangents.length - 1));
-// 		const tangent = frames.tangents[segment];
-
-// 		// Create the disk geometry
-// 		const diskGeometry = new THREE.CylinderGeometry(
-// 			diskRadius,
-// 			diskRadius,
-// 			diskHeight,
-// 			32
-// 		);
-// 		const disk = new THREE.Mesh(diskGeometry, diskMaterial);
-
-// 		// Position the disk
-// 		disk.position.copy(point);
-
-// 		// Align the disk with the tangent
-// 		const axis = new THREE.Vector3(0, 1, 0);
-// 		const quaternion = new THREE.Quaternion().setFromUnitVectors(
-// 			axis,
-// 			tangent
-// 		);
-// 		disk.quaternion.copy(quaternion);
-
-// 		// Add the disk to the scene
-// 		scene.add(disk);
-
-// 		// move the application sphere's text mesh to the top of the disk
-// 		var x = point.x,
-// 			y = point.y + diskRadius + 0.5,
-// 			z = point.z;
-// 		appSphere.textMesh.position.set(x, y, z);
-// 	});
-// }
 
 function placeCompaniesAndInsertDisks(
 	applicationSpheres,
@@ -485,8 +394,15 @@ function placeCompaniesAndInsertDisks(
 			const point = spline.getPointAt(t);
 			const normal = frames.normals[segmentIndex];
 			const binormal = frames.binormals[segmentIndex];
+			const spiralCoefficient = numCompanies > 25 ? 7 : 1;
+			var angle =
+				Math.PI *
+				(spiralCoefficient +
+					((companyIndex / numCompanies) * spiralCoefficient -
+						spiralCoefficient / 2));
 
-			const angle = Math.PI * (1 + (companyIndex / numCompanies - 0.5));
+			// Keep angle to stay on the top half of the cylinder using modulo
+			angle = (angle % Math.PI) + Math.PI / 2;
 			const xOffset = radiusOffset * Math.cos(angle);
 			const zOffset = radiusOffset * Math.sin(angle);
 
