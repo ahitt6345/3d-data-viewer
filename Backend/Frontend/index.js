@@ -186,7 +186,7 @@ var CompanySphere = function (x, y, z, radius, companyData, application) {
 		"/ext/logos/" + companystr + ".png"
 	);
 	this.sphere = new THREE.Mesh(
-		new THREE.BoxGeometry(30, 30, 30),
+		new THREE.BoxGeometry(40, 40, 40),
 		new THREE.MeshBasicMaterial({ map: texture })
 	);
 	this.sphere.position.set(x, y, z);
@@ -353,7 +353,7 @@ var processData = function (data) {
 	window.applicationSpheres = applicationSpheres;
 };
 
-function placeCompaniesAndInsertDisks(
+function placeCompaniesAndInsertDisks( // Somewhat working
 	applicationSpheres,
 	spline,
 	segments,
@@ -394,7 +394,7 @@ function placeCompaniesAndInsertDisks(
 			const point = spline.getPointAt(t);
 			const normal = frames.normals[segmentIndex];
 			const binormal = frames.binormals[segmentIndex];
-			const spiralCoefficient = numCompanies > 25 ? 7 : 1;
+			const spiralCoefficient = numCompanies > 25 ? 15 : 1;
 			var angle =
 				Math.PI *
 				(spiralCoefficient +
@@ -413,6 +413,9 @@ function placeCompaniesAndInsertDisks(
 
 			// Update the company's position
 			company.sphere.position.copy(finalPosition);
+
+			// update the orientation of the cube [company.sphere] to look at the spline segment's normal
+			company.sphere.lookAt(point);
 			//update the company's text mesh position
 			company.textMesh.position.copy(finalPosition);
 		});
@@ -440,6 +443,7 @@ function placeCompaniesAndInsertDisks(
 		);
 	});
 }
+
 function placeDiskAt(
 	position,
 	radius,
@@ -534,25 +538,12 @@ function reorderAndRepositionCompanySpheres() {
 
 		// reposition the first company sphere to the center of the application sphere
 		// console.log(applicationSphere.sphere);
-		//console.log(applicationSphere.sphere.position);
+		// console.log(applicationSphere.sphere.position);
 		applicationSphere.companies[0].updatePosition(
 			applicationSphere.sphere.position.x,
 			applicationSphere.sphere.position.y,
 			applicationSphere.sphere.position.z
 		);
-		//console.log(applicationSphere.companies[0].sphere.position);
-		// // update the first company sphere's radius to reflect the new order
-		// let firstCompany = applicationSphere.companies[0];
-		// // dispose old geometry
-		// firstCompany.sphere.geometry.dispose();
-		// // create new geometry
-		// firstCompany.sphere.geometry = new THREE.SphereGeometry(
-		// 	order === "mosaic"
-		// 		? (firstCompany.companyData.mosaic / 1000) * 5
-		// 		: firstCompany.companyData.total_funding / 100000000,
-		// 	32,
-		// 	32
-		// );
 		let companies = applicationSphere.companies;
 		// reposition the rest of the company spheres to spiral out from the center of the application sphere
 		for (var i = 1; i < companies.length; i++) {
@@ -620,12 +611,6 @@ var generateNextSpiralPoint = function (
 	nextRadius,
 	index
 ) {
-	// if (!generateNextSpiralPoint.logged) {
-	// 	generateNextSpiralPoint.logged = true;
-	// 	console.log("currentPoint: ", currentPoint);
-	// 	console.log("currentRadius: ", currentRadius);
-	// 	console.log("nextRadius: ", nextRadius);
-	// }
 	// Spiral parameters
 	var spacing = 1.3; // Additional spacing to make it look nice (you can adjust this value)
 	var angle = 125.5 * (Math.PI / 180); // Fixed angle in radians (110 degrees)
@@ -693,34 +678,6 @@ function rotateSpheresToFaceNext(spheres) {
 		currentSphere.quaternion.copy(quaternion);
 	}
 }
-
-// used on the server end to generate the spiral points
-// function placeSpheresInSpiral(cylinder, spheres) {
-// 	const cylinderHeight = cylinder.height;
-// 	const cylinderRadius = cylinder.radius;
-// 	const numSpheres = spheres.length;
-// 	const turns = 3; // Number of complete turns around the cylinder
-// 	const angleStep = (2 * Math.PI * turns) / numSpheres;
-// 	const heightStep = cylinderHeight / numSpheres;
-
-// 	for (let i = 0; i < numSpheres; i++) {
-// 		const angle = i * angleStep;
-// 		const y = cylinderHeight / 2 - i * heightStep;
-// 		const x = cylinderRadius * Math.cos(angle);
-// 		const z = cylinderRadius * Math.sin(angle);
-
-// 		spheres[i].sphere.position.set(x, y, z);
-// 	}
-// }
-
-// The updated distance function using objects
-var distObj = function (point1, point2) {
-	return Math.sqrt(
-		Math.pow(point2.x - point1.x, 2) +
-			Math.pow(point2.y - point1.y, 2) +
-			Math.pow(point2.z - point1.z, 2)
-	);
-};
 
 // connect to the server
 var rawData = [];
