@@ -36,23 +36,23 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 camera.position.z = 10;
+
 var light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(0, 0, 60);
+light.position.set(0, 0, 120);
 light.target.position.set(0, 0, 0);
 window.light = light;
 scene.add(light);
 
 light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(0, 50, 60);
+light.position.set(-580, 300, 135);
 light.target.position.set(0, 0, 0);
 window.light = light;
 scene.add(light);
+
+var light = new THREE.AmbientLight(0x404040); // soft white light
+scene.add(light);
 var isPressed = {};
 
-document.body.onload = function () {
-	document.getElementById("order").onclick =
-		reorderAndRepositionCompanySpheres;
-};
 document.addEventListener("keydown", (event) => {
 	const keyCode = event.keyCode;
 	switch (keyCode) {
@@ -128,7 +128,7 @@ function animate() {
 	const direction = controls
 		.getDirection(new THREE.Vector3(0, 0, -1))
 		.clone();
-	const speed = 5;
+	const speed = 1;
 
 	if (isPressed["W"]) {
 		// forward
@@ -186,7 +186,7 @@ var CompanySphere = function (x, y, z, radius, companyData, application) {
 		"/ext/logos/" + companystr + ".png"
 	);
 	this.sphere = new THREE.Mesh(
-		new THREE.BoxGeometry(40, 40, 40),
+		new THREE.BoxGeometry(25, 25, 25),
 		new THREE.MeshBasicMaterial({ map: texture })
 	);
 	this.sphere.position.set(x, y, z);
@@ -212,9 +212,9 @@ var CompanySphere = function (x, y, z, radius, companyData, application) {
 	scene.add(this.line);
 
 	// Create and position the text mesh
-	var text = new TextGeometry(companyData.company, {
+	/*var text = new TextGeometry(companyData.company, {
 		font: helvetikerFont,
-		size: 1,
+		size: 0.1,
 		depth: 0.1,
 	});
 	var textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -222,7 +222,7 @@ var CompanySphere = function (x, y, z, radius, companyData, application) {
 	this.textMesh.position.set(x, y, z);
 	scene.add(this.textMesh);
 
-	this.companyData = companyData;
+	this.companyData = companyData;*/
 
 	// Add the sphere to the scene
 	scene.add(this.sphere);
@@ -242,7 +242,7 @@ CompanySphere.prototype.updatePosition = function (x, y, z) {
 
 	// Update position of the sphere and text mesh
 	this.sphere.position.set(x, y, z);
-	this.textMesh.position.set(x, y, z);
+	//this.textMesh.position.set(x, y, z);
 
 	// Remove the old line
 	if (this.line) {
@@ -291,7 +291,7 @@ class ApplicationSphere {
 		scene.add(this.sphere);
 		var text = new TextGeometry(application, {
 			font: helvetikerFont,
-			size: 20,
+			size: 5,
 			depth: 0.1,
 		});
 		var textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -337,7 +337,7 @@ var processData = function (data) {
 		applicationSpheres.push(ApplicationSphere.fromTuple(data[i]));
 		//console.log("Application sphere added: ", applicationSpheres[i]);
 	}
-	rotateSpheresToFaceNext(applicationSpheres);
+	//rotateSpheresToFaceNext(applicationSpheres);
 	// positionCompaniesAroundCylinder(applicationSpheres);
 
 	const { spline, segments } = createSpiralTube(applicationSpheres);
@@ -352,98 +352,336 @@ var processData = function (data) {
 	});
 	window.applicationSpheres = applicationSpheres;
 };
+// Your function to create the texture
+function createTextTexture(text, fontSize = 100, width = 3000, height = 200) {
+	const canvas = document.createElement("canvas");
+	canvas.width = width;
+	canvas.height = height;
+	const context = canvas.getContext("2d");
 
-function placeCompaniesAndInsertDisks( // Somewhat working
+	// Draw the background
+	context.fillStyle = "blue";
+	context.fillRect(0, 0, width, height);
+
+	// Draw guide lines
+	context.strokeStyle = "red";
+	context.lineWidth = 5;
+	context.beginPath();
+	context.moveTo(0, 0);
+	context.lineTo(0, height);
+	context.stroke();
+
+	// Set the font and draw the text
+	context.fillStyle = "white";
+	context.font = `${fontSize}px Arial`;
+	context.textAlign = "center";
+	context.textBaseline = "middle";
+	context.fillText(text, width / 2, height / 2);
+
+	// Create a texture from the canvas
+	const texture = new THREE.CanvasTexture(canvas);
+	texture.wrapS = THREE.RepeatWrapping;
+	texture.wrapT = THREE.RepeatWrapping;
+	texture.needsUpdate = true;
+	return texture;
+}
+
+// function placeCompaniesAndInsertDisks(
+// 	applicationSpheres,
+// 	spline,
+// 	segments,
+// 	options = {}
+// ) {
+// 	const {
+// 		radiusOffset = 130,
+// 		tubeRadius = 123,
+// 		companiesPerSegment = 10,
+// 	} = options;
+
+// 	// Calculate FrenetFrames for the spline
+// 	const frames = spline.computeFrenetFrames(segments, true);
+
+// 	let companyIndex = 0;
+
+// 	applicationSpheres.forEach((appSphere, appIndex) => {
+// 		if (appIndex !== 0) {
+// 			appSphere.application =
+// 				applicationSpheres[appIndex - 1].application;
+// 		}
+// 		const numCompanies = appSphere.companies.length;
+// 		let remainingCompanies = numCompanies;
+
+// 		while (remainingCompanies > 0) {
+// 			if (companyIndex >= segments) break;
+
+// 			const point = spline.getPointAt(companyIndex / segments);
+// 			const tangent = frames.tangents[companyIndex];
+// 			const normal = frames.normals[companyIndex];
+// 			const binormal = frames.binormals[companyIndex];
+// 			let currcompaniespersegment = companiesPerSegment;
+// 			if (remainingCompanies < companiesPerSegment) {
+// 				currcompaniespersegment = remainingCompanies;
+// 			}
+// 			for (let i = 0; i < currcompaniespersegment; i++) {
+// 				if (remainingCompanies <= 0) {
+// 					break;
+// 				}
+
+// 				let angle = (i / currcompaniespersegment) * Math.PI;
+// 				angle = (angle % Math.PI) + Math.PI / 2;
+
+// 				if (numCompanies === 1) {
+// 					angle = Math.PI;
+// 				}
+
+// 				const xOffset = radiusOffset * Math.cos(angle);
+// 				const zOffset = radiusOffset * Math.sin(angle);
+
+// 				const position = new THREE.Vector3()
+// 					.copy(point)
+// 					.addScaledVector(normal, xOffset)
+// 					.addScaledVector(binormal, zOffset);
+
+// 				// Update the company's position
+// 				const company =
+// 					appSphere.companies[numCompanies - remainingCompanies];
+// 				company.updatePosition(position.x, position.y, position.z);
+// 				remainingCompanies--;
+
+// 				// Orient the company to face the correct direction
+// 				company.sphere.lookAt(point);
+
+// 				// if this is the middle company of the segment, align it with the previous company and the company in front of it
+// 				if (i === Math.floor(currcompaniespersegment / 2)) {
+// 					const nextPoint = spline.getPointAt(
+// 						(companyIndex + 1) / segments
+// 					);
+// 					const nextTangent = frames.tangents[companyIndex + 1];
+// 					const nextNormal = frames.normals[companyIndex + 1];
+// 					const nextBinormal = frames.binormals[companyIndex + 1];
+
+// 					const nextPosition = new THREE.Vector3()
+// 						.copy(nextPoint)
+// 						.addScaledVector(nextNormal, xOffset)
+// 						.addScaledVector(nextBinormal, zOffset);
+
+// 					company.sphere.lookAt(nextPosition);
+// 				}
+// 			}
+
+// 			companyIndex += 3;
+
+// 			if (remainingCompanies <= 0) {
+// 				// Create the texture for the text
+// 				let str = appSphere.application;
+// 				while (str.length < 10) {
+// 					str = "*" + str + "*";
+// 				}
+// 				const texture = createTextTexture(str);
+// 				const textMaterial = new THREE.MeshBasicMaterial({
+// 					map: texture,
+// 					side: THREE.DoubleSide,
+// 				});
+
+// 				const newspline = new THREE.CatmullRomCurve3([
+// 					spline.getPointAt((companyIndex - 2) / segments),
+// 					spline.getPointAt((companyIndex - 1) / segments),
+// 				]);
+
+// 				// Create the tube geometry
+// 				const tubeGeometry = new THREE.TubeGeometry(
+// 					newspline,
+// 					2,
+// 					tubeRadius,
+// 					40,
+// 					false
+// 				);
+
+// 				// Adjust UV mapping
+// 				const uvAttribute = tubeGeometry.attributes.uv;
+// 				for (let i = 0; i < uvAttribute.count; i++) {
+// 					const u = uvAttribute.getX(i);
+// 					const v = uvAttribute.getY(i);
+
+// 					// Correct the UV mapping to wrap around the circumference
+// 					uvAttribute.setXY(i, 1 - v, u); // Swap u and v
+// 				}
+// 				uvAttribute.needsUpdate = true;
+
+// 				// Create the tube mesh
+// 				const tube = new THREE.Mesh(tubeGeometry, textMaterial);
+// 				var newframe = newspline.computeFrenetFrames(1, true);
+// 				var t = newframe.tangents[0];
+// 				var n = newframe.normals[0];
+// 				var b = newframe.binormals[0];
+
+// 				var m1 = new THREE.Matrix4().makeBasis(t, n, b);
+
+// 				var quat = new THREE.Quaternion().setFromRotationMatrix(m1);
+// 				//tube.rotateOnAxis(tangent, Math.PI);
+// 				// Add the tube to the scene
+// 				tube.setRotationFromQuaternion(quat);
+// 				scene.add(tube);
+// 			}
+// 		}
+// 	});
+// }
+
+function placeCompaniesAndInsertDisks(
 	applicationSpheres,
 	spline,
 	segments,
 	options = {}
 ) {
 	const {
-		spiralTurns = 5,
-		radiusOffset = 130,
-		diskRadius = 135,
-		diskHeight = 0.2,
-		diskMaterial = new THREE.MeshBasicMaterial({
-			// Default disk material
-			color: 0x0000ff,
-			opacity: 0.5,
-			transparent: true,
-		}),
-		companySphereRadius = 15,
+		radiusOffset = 132,
+		diskRadius = 121,
+		diskHeight = 30,
+		companiesPerSegment = 10,
 	} = options;
 
 	// Calculate FrenetFrames for the spline
-	const frames = spline.computeFrenetFrames(segments, false); // Assuming closed path is false
-	// Calculate total number of companies across all application spheres
-	const totalCompanies = applicationSpheres.reduce(
-		(total, appSphere) => total + appSphere.companies.length,
-		0
-	);
-	let accumulatedT = 0; // Tracks the accumulated t along the spline
+	const frames = spline.computeFrenetFrames(segments, true);
+
+	// Material for disks
+	const diskMaterial = new THREE.MeshBasicMaterial({
+		color: 0x0000ff,
+		opacity: 0.5,
+		transparent: true,
+	});
+
+	let companyIndex = 2;
+
 	applicationSpheres.forEach((appSphere, appIndex) => {
 		const numCompanies = appSphere.companies.length;
-		const sphereSegmentLength = numCompanies / totalCompanies; // Proportion of the total spiral
+		let remainingCompanies = numCompanies;
+		scene.remove(appSphere.textMesh);
+		while (remainingCompanies > 0) {
+			if (companyIndex >= segments) break;
 
-		appSphere.companies.forEach((company, companyIndex) => {
-			// Calculate the position along the spline
-			const t =
-				accumulatedT +
-				(companyIndex / numCompanies) * sphereSegmentLength;
-			const segmentIndex = Math.floor(t * segments);
-			const point = spline.getPointAt(t);
-			const normal = frames.normals[segmentIndex];
-			const binormal = frames.binormals[segmentIndex];
-			const spiralCoefficient = numCompanies > 25 ? 15 : 1;
-			var angle =
-				Math.PI *
-				(spiralCoefficient +
-					((companyIndex / numCompanies) * spiralCoefficient -
-						spiralCoefficient / 2));
+			const point = spline.getPointAt(companyIndex / segments);
+			const tangent = frames.tangents[companyIndex];
+			const normal = frames.normals[companyIndex];
+			const binormal = frames.binormals[companyIndex];
+			var currcompaniespersegment = companiesPerSegment;
+			if (remainingCompanies < companiesPerSegment) {
+				currcompaniespersegment = remainingCompanies;
+			}
+			for (let i = 0; i < companiesPerSegment; i++) {
+				if (remainingCompanies <= 0) {
+					break;
+				}
 
-			// Keep angle to stay on the top half of the cylinder using modulo
-			angle = (angle % Math.PI) + Math.PI / 2;
-			const xOffset = radiusOffset * Math.cos(angle);
-			const zOffset = radiusOffset * Math.sin(angle);
+				var angle = (i / currcompaniespersegment) * Math.PI;
+				angle = (angle % Math.PI) + Math.PI / 2;
 
-			const finalPosition = new THREE.Vector3()
-				.copy(point)
-				.addScaledVector(normal, xOffset)
-				.addScaledVector(binormal, zOffset);
+				if (numCompanies === 1) {
+					angle = Math.PI;
+				}
 
-			// Update the company's position
-			company.sphere.position.copy(finalPosition);
+				const xOffset = radiusOffset * Math.cos(angle);
+				const zOffset = radiusOffset * Math.sin(angle);
 
-			// update the orientation of the cube [company.sphere] to look at the spline segment's normal
-			company.sphere.lookAt(point);
-			//update the company's text mesh position
-			company.textMesh.position.copy(finalPosition);
-		});
+				const position = new THREE.Vector3()
+					.copy(point)
+					.addScaledVector(normal, xOffset)
+					.addScaledVector(binormal, zOffset);
 
-		// Place a disk at the end of each application sphere's segment
-		const tEnd = accumulatedT + sphereSegmentLength;
-		const endPoint = spline.getPointAt(tEnd);
-		const segmentDiskIndex = Math.floor(tEnd * segments);
-		const tangentDisk = frames.tangents[segmentDiskIndex];
-		const axis = new THREE.Vector3(0, 1, 0);
-		const quaternion = new THREE.Quaternion().setFromUnitVectors(
-			axis,
-			tangentDisk
-		);
-		// Adjust accumulatedT considering the company sphere diameter
-		accumulatedT += sphereSegmentLength;
-		placeDiskAt(endPoint, diskRadius, diskHeight, diskMaterial, quaternion);
+				// Update the company's position
+				const company =
+					appSphere.companies[numCompanies - remainingCompanies];
+				company.updatePosition(position.x, position.y, position.z);
+				remainingCompanies--;
 
-		// Move the application sphere's text mesh to the top of the disk
-		const pointDisk = spline.getPointAt(tEnd);
-		appSphere.textMesh.position.set(
-			pointDisk.x,
-			pointDisk.y + diskRadius + 0.5,
-			pointDisk.z
-		);
+				// Orient the company to face the correct direction
+				company.sphere.lookAt(point);
+
+				// if this is the middle company of the segment, align it with the previous company and the company in front of it
+				if (
+					i === Math.floor(currcompaniespersegment / 2) &&
+					angle > Math.PI * 0.9 &&
+					angle < Math.PI * 1.1
+				) {
+					const nextPoint = spline.getPointAt(
+						(companyIndex + 1) / segments
+					);
+					const nextTangent = frames.tangents[companyIndex + 1];
+					const nextNormal = frames.normals[companyIndex + 1];
+					const nextBinormal = frames.binormals[companyIndex + 1];
+
+					const nextPosition = new THREE.Vector3()
+						.copy(nextPoint)
+						.addScaledVector(nextNormal, xOffset)
+						.addScaledVector(nextBinormal, zOffset);
+
+					company.sphere.lookAt(nextPosition);
+				}
+			}
+
+			companyIndex += 4;
+
+			if (remainingCompanies <= 0) {
+				// Insert a disk at this segment
+				const diskGeometry = new THREE.CylinderGeometry(
+					diskRadius,
+					diskRadius,
+					diskHeight,
+					128,
+					1,
+					true,
+					0,
+					Math.PI * 2
+				);
+
+				// Create the texture for the text
+				var str = appSphere.application;
+				while (str.length < 10) {
+					str = "*" + str + "*";
+				}
+				const texture = createTextTexture(str);
+				const textMaterial = new THREE.MeshBasicMaterial({
+					map: texture,
+					side: THREE.DoubleSide,
+				});
+
+				const materials = [
+					textMaterial, // side material
+					diskMaterial, // top material
+					diskMaterial, // bottom material
+				];
+
+				const disk = new THREE.Mesh(diskGeometry, materials);
+
+				// Position the disk
+				var n = 2;
+				var pointAhead = spline.getPointAt(
+					(companyIndex - n) / segments
+				);
+
+				disk.position.copy(pointAhead);
+
+				// Align the disk with the tangent using Frenet frames
+				const tangent = frames.tangents[companyIndex - n];
+				const normal = frames.normals[companyIndex - n];
+				const binormal = frames.binormals[companyIndex - n];
+
+				// Create a quaternion from the Frenet frame
+				const m1 = new THREE.Matrix4().makeBasis(
+					binormal,
+					tangent,
+					normal
+				);
+				const quaternion = new THREE.Quaternion().setFromRotationMatrix(
+					m1
+				);
+				disk.setRotationFromQuaternion(quaternion);
+
+				// Add the disk to the scene
+				scene.add(disk);
+			}
+		}
 	});
 }
-
 function placeDiskAt(
 	position,
 	radius,
@@ -463,15 +701,15 @@ function createSpiralTube(applicationSpheres, options = {}) {
 	const {
 		initialRadius = 1,
 		finalRadius = 1,
-		segments = 200,
-		radialSegments = 32,
+		segments = 350,
+		radialSegments = 128,
 	} = options;
 
 	// Collect the center points of all application spheres
 	const points = applicationSpheres.map((appSphere) =>
 		appSphere.sphere.position.clone()
 	);
-
+	points.splice(0, 5);
 	// Create a CatmullRomCurve3 spline from the points
 	const spline = new THREE.CatmullRomCurve3(points);
 
@@ -491,9 +729,9 @@ function createSpiralTube(applicationSpheres, options = {}) {
 	// Create the mesh material
 	const tubeMaterial = new THREE.MeshStandardMaterial({
 		color: 0xff0000,
-		opacity: 0.5,
+		opacity: 0.95,
 		transparent: true,
-		roughness: 0.5,
+		roughness: 0.75,
 	});
 
 	// Create the tube mesh
@@ -506,104 +744,104 @@ function createSpiralTube(applicationSpheres, options = {}) {
 }
 
 var isMosaic = true;
-function reorderAndRepositionCompanySpheres() {
-	// By default the company spheres are ordered by their mosaic value, we want to be able to toggle between ordering by moasic score and by total funding.
-	// The "order" value affects four things in the company sphere object: the position of the sphere, the position of the text, the position of the line connecting the company sphere to the application sphere, and the company sphere's radius.
-	// First we have to sort the company spheres by the desired value, then we have to reposition the company spheres based on the new order.
-	// The company spheres are ordered by their mosaic value by default
-	var order = isMosaic ? "total_funding" : "mosaic";
-	isMosaic = !isMosaic;
-	// Sort the company spheres by the desired value
-	// Reposition the company spheres based on the new order
-	var translateToOrigin = function (point, origin) {
-		return {
-			x: point.x - origin.x,
-			y: point.y - origin.y,
-			z: point.z - origin.z,
-		};
-	};
+// function reorderAndRepositionCompanySpheres() {
+// 	// By default the company spheres are ordered by their mosaic value, we want to be able to toggle between ordering by moasic score and by total funding.
+// 	// The "order" value affects four things in the company sphere object: the position of the sphere, the position of the text, the position of the line connecting the company sphere to the application sphere, and the company sphere's radius.
+// 	// First we have to sort the company spheres by the desired value, then we have to reposition the company spheres based on the new order.
+// 	// The company spheres are ordered by their mosaic value by default
+// 	var order = isMosaic ? "total_funding" : "mosaic";
+// 	isMosaic = !isMosaic;
+// 	// Sort the company spheres by the desired value
+// 	// Reposition the company spheres based on the new order
+// 	var translateToOrigin = function (point, origin) {
+// 		return {
+// 			x: point.x - origin.x,
+// 			y: point.y - origin.y,
+// 			z: point.z - origin.z,
+// 		};
+// 	};
 
-	// Function to translate a point back to the original position
-	var translateFromOrigin = function (point, origin) {
-		return {
-			x: point.x + origin.x,
-			y: point.y + origin.y,
-			z: point.z + origin.z,
-		};
-	};
-	applicationSpheres.forEach((applicationSphere) => {
-		applicationSphere.companies.sort((b, a) => {
-			return a.companyData[order] - b.companyData[order];
-		});
+// 	// Function to translate a point back to the original position
+// 	var translateFromOrigin = function (point, origin) {
+// 		return {
+// 			x: point.x + origin.x,
+// 			y: point.y + origin.y,
+// 			z: point.z + origin.z,
+// 		};
+// 	};
+// 	applicationSpheres.forEach((applicationSphere) => {
+// 		applicationSphere.companies.sort((b, a) => {
+// 			return a.companyData[order] - b.companyData[order];
+// 		});
 
-		// reposition the first company sphere to the center of the application sphere
-		// console.log(applicationSphere.sphere);
-		// console.log(applicationSphere.sphere.position);
-		applicationSphere.companies[0].updatePosition(
-			applicationSphere.sphere.position.x,
-			applicationSphere.sphere.position.y,
-			applicationSphere.sphere.position.z
-		);
-		let companies = applicationSphere.companies;
-		// reposition the rest of the company spheres to spiral out from the center of the application sphere
-		for (var i = 1; i < companies.length; i++) {
-			var prevCompanySphere = companies[i - 1];
-			var curCompanySphere = companies[i];
-			// console.log(
-			// 	"prevCompanySphere: ",
-			// 	prevCompanySphere.sphere.position
-			// );
-			// console.log("curCompanySphere: ", curCompanySphere.sphere.position);
-			// Translate the previous company sphere to the origin
+// 		// reposition the first company sphere to the center of the application sphere
+// 		// console.log(applicationSphere.sphere);
+// 		// console.log(applicationSphere.sphere.position);
+// 		applicationSphere.companies[0].updatePosition(
+// 			applicationSphere.sphere.position.x,
+// 			applicationSphere.sphere.position.y,
+// 			applicationSphere.sphere.position.z
+// 		);
+// 		let companies = applicationSphere.companies;
+// 		// reposition the rest of the company spheres to spiral out from the center of the application sphere
+// 		for (var i = 1; i < companies.length; i++) {
+// 			var prevCompanySphere = companies[i - 1];
+// 			var curCompanySphere = companies[i];
+// 			// console.log(
+// 			// 	"prevCompanySphere: ",
+// 			// 	prevCompanySphere.sphere.position
+// 			// );
+// 			// console.log("curCompanySphere: ", curCompanySphere.sphere.position);
+// 			// Translate the previous company sphere to the origin
 
-			var origin = {
-				x: applicationSphere.sphere.position.x,
-				y: applicationSphere.sphere.position.y,
-				z: applicationSphere.sphere.position.z,
-			};
+// 			var origin = {
+// 				x: applicationSphere.sphere.position.x,
+// 				y: applicationSphere.sphere.position.y,
+// 				z: applicationSphere.sphere.position.z,
+// 			};
 
-			var translatedPrevPoint = translateToOrigin(
-				{
-					x: prevCompanySphere.sphere.position.x,
-					y: prevCompanySphere.sphere.position.y,
-					z: prevCompanySphere.sphere.position.z,
-				},
-				origin
-			);
+// 			var translatedPrevPoint = translateToOrigin(
+// 				{
+// 					x: prevCompanySphere.sphere.position.x,
+// 					y: prevCompanySphere.sphere.position.y,
+// 					z: prevCompanySphere.sphere.position.z,
+// 				},
+// 				origin
+// 			);
 
-			// console.log("origin", origin);
-			// console.log("translatedPrevPoint", translatedPrevPoint);
-			// Calculate the next point in the spiral at the origin
-			var currentRadius =
-				prevCompanySphere.sphere.geometry.parameters.radius;
-			var nextRadius = curCompanySphere.sphere.geometry.parameters.radius;
-			// console.log(translatedPrevPoint, origin);
-			var nextPoint = generateNextSpiralPoint(
-				translatedPrevPoint,
-				currentRadius,
-				nextRadius,
-				i
-			);
-			// console.log("nextPoint:", nextPoint);
-			// Translate the next point back to the original position
-			var nextPosition = translateFromOrigin(nextPoint, origin);
+// 			// console.log("origin", origin);
+// 			// console.log("translatedPrevPoint", translatedPrevPoint);
+// 			// Calculate the next point in the spiral at the origin
+// 			var currentRadius =
+// 				prevCompanySphere.sphere.geometry.parameters.radius;
+// 			var nextRadius = curCompanySphere.sphere.geometry.parameters.radius;
+// 			// console.log(translatedPrevPoint, origin);
+// 			var nextPoint = generateNextSpiralPoint(
+// 				translatedPrevPoint,
+// 				currentRadius,
+// 				nextRadius,
+// 				i
+// 			);
+// 			// console.log("nextPoint:", nextPoint);
+// 			// Translate the next point back to the original position
+// 			var nextPosition = translateFromOrigin(nextPoint, origin);
 
-			// Update the position of the current company sphere
+// 			// Update the position of the current company sphere
 
-			curCompanySphere.updatePosition(
-				nextPosition.x,
-				nextPosition.y,
-				nextPosition.z
-			);
+// 			curCompanySphere.updatePosition(
+// 				nextPosition.x,
+// 				nextPosition.y,
+// 				nextPosition.z
+// 			);
 
-			// Update the radius of the current company sphere using resize
-		}
-	});
+// 			// Update the radius of the current company sphere using resize
+// 		}
+// 	});
 
-	document.getElementById("order").innerHTML = isMosaic
-		? "Order by total funding"
-		: "Order by mosaic score";
-}
+// 	document.getElementById("order").innerHTML = isMosaic
+// 		? "Order by total funding"
+// 		: "Order by mosaic score";
+// }
 
 var generateNextSpiralPoint = function (
 	currentPoint,
@@ -627,9 +865,9 @@ var generateNextSpiralPoint = function (
 	var newAngle = currentAngle + angle;
 
 	// Calculate the new coordinates in the spiral (X-Z plane)
-	var x = currentPoint.x + r * Math.cos(newAngle);
-	var z = currentPoint.z + r * Math.sin(newAngle);
-	var y = index * 0.75; // Keeping y constant
+	var x = currentPoint.x + r * index; //Math.cos(newAngle);
+	var z = currentPoint.z + r * index; //Math.sin(newAngle);
+	var y = 0; // Keeping y constant
 
 	return { x: x, y: y, z: z };
 };
@@ -675,7 +913,7 @@ function rotateSpheresToFaceNext(spheres) {
 		quaternion.setFromUnitVectors(up, direction);
 
 		// Apply the quaternion rotation to the current sphere
-		currentSphere.quaternion.copy(quaternion);
+		//currentSphere.quaternion.copy(quaternion);
 	}
 }
 
