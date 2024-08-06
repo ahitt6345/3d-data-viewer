@@ -24,7 +24,7 @@ server.listen(3000, () => {
 var csv = require("csv-parser");
 
 // file name: gendata.csv
-var filename = "newgendata.csv";
+var filename = "De No Finance 2.csv";
 var data = [];
 var dist = function (x, x1, y, y1, z, z1) {
 	return Math.sqrt(
@@ -211,7 +211,6 @@ var generateApplicationSpheres = function (data) {
 			);
 		}
 	}
-	// only save 20 applicationSpheres
 	// applicationSpheres = applicationSpheres.slice(0, 20);
 
 	applicationSpheres.forEach((sphere) => {
@@ -305,7 +304,101 @@ var generateApplicationSpheres = function (data) {
 	console.log(JSON.stringify(result));
 	return result;
 };
+class categorySphere {
+	constructor(x, y, z, radius, category) {
+		this.x = x;
+		this.y = y;
+		this.z = z;
+		this.radius = radius;
+		this.category = category;
+		this.subcategories = [];
+	}
 
+	addSubcategory(subcategory) {
+		this.subcategories.push(subcategory);
+	}
+
+	toTuple() {
+		return [
+			this.x,
+			this.y,
+			this.z,
+			this.radius,
+			this.category,
+			this.subcategories.map((subcategory) => subcategory.toTuple()),
+		];
+	}
+}
+
+function generateApplicationSpheresForSplines(data) {
+	var applications = {}; // This will be used to store the unique applications
+	for (var i = 0; i < data.length; i++) {
+		applications[data[i].applications] = applications[data[i].applications]
+			? applications[data[i].applications] + 1
+			: 1; // Count the number of companies that use each application
+	}
+	var applicationsArray = Object.keys(applications); // Get the array of unique applications
+	console.log(applicationsArray);
+	var applicationSpheres = [];
+	let applicationSphereRadius = 120;
+	for (let i = 0; i < applicationsArray.length; i++) {
+		// generate the application spheres, we dont care where they are positioned currently. initialize them all at (0,0,0)
+		let x = 0,
+			y = 0,
+			z = 0;
+
+		let applicationSphere = new applicationSphereServerSide(
+			x,
+			y,
+			z,
+			applicationSphereRadius,
+			applicationsArray[i]
+		);
+		applicationSpheres.push(applicationSphere);
+	}
+	// sort the applicationspheres from most companies to least companies
+	applicationSpheres.sort(
+		(a, b) => applications[b.application] - applications[a.application]
+	);
+
+	// Reassign the application sphere positions to represent multiple straight lines next to each other
+
+	var spheresPerRow = 10;
+	var rowSpacing = 200;
+	var columnSpacing = applicationSphereRadius * 2 + 100;
+	var numRows = Math.ceil(applicationSpheres.length / spheresPerRow);
+
+	applicationSpheres.forEach((sphere, index) => {
+		var row = Math.floor(index / spheresPerRow);
+		var col = index % spheresPerRow;
+		var x = col * columnSpacing - (spheresPerRow - 1) * columnSpacing;
+		var z = row * rowSpacing * 1.5;
+		sphere.x = x;
+		sphere.z = z;
+	});
+
+	// Assign companies to application spheres
+	for (var i = 0; i < data.length; i++) {
+		var foundApplicationSphere = false;
+		for (var j = 0; j < applicationSpheres.length; j++) {
+			if (data[i].applications === applicationSpheres[j].application) {
+				applicationSpheres[j].addCompany(data[i]);
+				foundApplicationSphere = true;
+				break;
+			}
+		}
+		if (!foundApplicationSphere) {
+			console.log(
+				"Failed to find application sphere for company: ",
+				data[i].company
+			);
+		}
+	}
+
+	var result = applicationSpheres.map((sphere) => sphere.toTuple());
+	console.log(JSON.stringify(result));
+	return result;
+}
 function placeSpheresInSpiral(cylinder, spheres) {
 	const cylinderHeight = cylinder.height;
 	const cylinderRadius = cylinder.radius;
@@ -328,42 +421,54 @@ function placeSpheresInSpiral(cylinder, spheres) {
 
 var dataAvailable = false;
 var applicationSpheres = [];
+var initialDataFunction = function (row) {
+	var applications = row["Applications"].trim().split(",");
+	if (applications.length > 1) {
+		// if there are multiple applications, we want to add the same row multiple times with each application
+		applications.forEach((application) => {
+			var filteredRow = {
+				company: row["Companies"],
+				industry: row["Industry"],
+				mosaic: +row["Mosaic (Overall)"],
+				applications: application,
+				total_funding: +row["Total Funding"],
+			};
+			data.push(filteredRow);
+		});
+		return;
+	}
+	applications = applications[0];
+	var filteredRow = {
+		company: row["Companies"],
+		industry: row["Industry"],
+		mosaic: +row["Mosaic (Overall)"],
+		applications: row["Applications"],
+		total_funding: +row["Total Funding"],
+	};
+	data.push(filteredRow);
+};
+var newDataFunction = function (row) {
+	// function for a different csv file format
+	var Companies = row["Companies"];
+	var Applications = row["Applications"];
+
+	var filteredRow = {
+		company: Companies,
+		applications: Applications,
+		mosaic: 0,
+		industry: Applications,
+		total_funding: 0,
+	};
+	data.push(filteredRow);
+};
 fs.createReadStream(filename)
 	.pipe(csv())
-	.on("data", (row) => {
-		// This will most likely be a database in the future, but for now it's a csv file :P
-		// we want to create a data structure like this:
-		// data = [ { company: '...', industry: '...', mosaic: '...', applications: '...', total_funding: '...' }, ...]
-
-		var applications = row["Applications"].trim().split(",");
-		if (applications.length > 1) {
-			// if there are multiple applications, we want to add the same row multiple times with each application
-			applications.forEach((application) => {
-				var filteredRow = {
-					company: row["Companies"],
-					industry: row["Industry"],
-					mosaic: +row["Mosaic (Overall)"],
-					applications: application,
-					total_funding: +row["Total Funding"],
-				};
-				data.push(filteredRow);
-			});
-			return;
-		}
-		applications = applications[0];
-		var filteredRow = {
-			company: row["Companies"],
-			industry: row["Industry"],
-			mosaic: +row["Mosaic (Overall)"],
-			applications: row["Applications"],
-			total_funding: +row["Total Funding"],
-		};
-		data.push(filteredRow);
-	})
+	.on("data", initialDataFunction)
 	.on("end", () => {
 		console.log("CSV file successfully processed");
 		dataAvailable = true;
-		applicationSpheres = generateApplicationSpheres(data);
+		//applicationSpheres = generateApplicationSpheres(data);
+		applicationSpheres = generateApplicationSpheresForSplines(data);
 	});
 
 // use socket.io to send data to the frontend
