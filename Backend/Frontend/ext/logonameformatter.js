@@ -12,10 +12,15 @@ fs.readdir(dir, function (err, files) {
 	files.forEach(function (file) {
 		var filePath = path.join(dir, file);
 		var newFilePath = path.join(dir, file.split(" ").join("_"));
-		fs.rename(filePath, newFilePath, function (err) {
-			if (err) {
-				console.log(err);
-			}
-		});
+		try {
+			fs.rename(filePath, newFilePath, function (err) {
+				if (err) {
+					console.log(err);
+				}
+			});
+		} catch (err) {
+			console.log(err);
+		}
 	});
+	console.log("done");
 });

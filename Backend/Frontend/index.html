@@ -11,7 +11,42 @@
     <div id = "cameraPosition"></div>
     <!-- Allow user to order the company spheres by total_funding or by mosaic, by default it's mosaic -->
     <!-- <button id = "order">Mosaic</div> -->
-
+    <style>
+        body {
+            background-color: black;
+        }
+    </style>
     <input type = "range" id = "range" min = "0" max = "100" value = "0" step = "1" style = "width: 100%;"></input>
+    <div id = "layout_container" style = "display:flex;width:100%;height:50vh">
+        <div id="threejs-container" style = "flex: 1;border: 1px solid #000;"></div>
+        <!-- Company Information Div -->
+        <div id="company-info" style = "flex: 1; border: 1px solid #000; overflow-y: scroll;color: white;">
+            <div id="company-info-container">
+                <div id="company-info-title">Company Information</div>
+                <div id="company-info-content">
+                    <div id="company-info-name">Company Name: </div>
+                    <div id="company-info-funding">Total Funding: </div>
+                    <div id="company-info-valuation">Valuation: </div>
+                    <div id="company-info-ipo">IPO: </div>
+                    <div id="company-info-employees">Employees: </div>
+                    <div id="company-info-industry">Industry: </div>
+                    <div id="company-info-location">Location: </div>
+                    <div id="company-info-description">Description: </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div style="width: 50%; height: 300px; overflow-y: scroll;" id="chat_window">
+        <!-- Add your individual chat messages here -->
+        <div id="message_container">
+        <div class="chat_message">Your message will show up here.</div>
+
+        </div>
+        
+        <div style="position: inherit; bottom: 0;">
+        <input type="text" placeholder="Type your message here" style = "width:90%" id = "clientChatText">
+        <button id = "submitChat">Send</button>
+        </div>
+    </div>
 </body>
 </html>

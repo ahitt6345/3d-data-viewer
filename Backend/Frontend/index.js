@@ -1,5 +1,4 @@
 import * as THREE from "/ext/three.module.js";
-import { PointerLockControls } from "/ext/PointerLockControls.js";
 import { TextGeometry } from "/ext/TextGeometry.js";
 import { FontLoader } from "/ext/FontLoader.js";
 
@@ -27,12 +26,12 @@ var helvetikerFont;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
 	75,
-	window.innerWidth / window.innerHeight,
+	window.innerWidth / 2 / (window.innerHeight / 2),
 	0.1,
 	3000
 );
 const renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(window.innerWidth * 0.75, window.innerHeight / 2);
 document.body.appendChild(renderer.domElement);
 
 camera.position.z = 10;
@@ -51,35 +50,35 @@ light.target.position.set(0, 0, 0);
 window.light = light;
 scene.add(light);
 
-var light = new THREE.AmbientLight(0x404040); // soft white light
+var light = new THREE.AmbientLight(0xa1a1a1); // soft white light
 
 window.camera = camera;
 scene.add(light);
 var isPressed = {};
-//scene.background = new THREE.Color(0xffffff);
-document.addEventListener("keydown", (event) => {
-	const keyCode = event.keyCode;
-	switch (keyCode) {
-		case 87: // W key
-			isPressed["W"] = true;
-			break;
-		case 83: // S key
-			isPressed["S"] = true;
-			break;
-		case 65: // A key
-			isPressed["A"] = true;
-			break;
-		case 68: // D key
-			isPressed["D"] = true;
-			break;
-		case 32: // Space bar
-			isPressed["Space"] = true;
-			break;
-		case 67: // C key
-			isPressed["C"] = true;
-			break;
-	}
-});
+// scene.background = new THREE.Color(0xffffff);
+// document.addEventListener("keydown", (event) => {
+// 	const keyCode = event.keyCode;
+// 	switch (keyCode) {
+// 		case 87: // W key
+// 			isPressed["W"] = true;
+// 			break;
+// 		case 83: // S key
+// 			isPressed["S"] = true;
+// 			break;
+// 		case 65: // A key
+// 			isPressed["A"] = true;
+// 			break;
+// 		case 68: // D key
+// 			isPressed["D"] = true;
+// 			break;
+// 		case 32: // Space bar
+// 			isPressed["Space"] = true;
+// 			break;
+// 		case 67: // C key
+// 			isPressed["C"] = true;
+// 			break;
+// 	}
+// });
 
 var dist = function (x, x1, y, y1, z, z1) {
 	return Math.sqrt(
@@ -110,18 +109,6 @@ document.addEventListener("keyup", (event) => {
 	}
 });
 
-var controls = new PointerLockControls(camera, document.body);
-
-document.addEventListener(
-	"click",
-	() => {
-		// Lock the pointer when the user clicks on the screen
-		// controls.lock();
-	},
-	false
-);
-
-scene.add(controls.getObject());
 var prevTime = performance.now();
 
 // cover the lower parts of the cylinders that are going to be generated in the future by creating a large black box
@@ -130,21 +117,20 @@ var geometry = new THREE.BoxGeometry(12000, 1, 3000);
 var material = new THREE.MeshBasicMaterial({ color: 0x000000 });
 var coverbox = new THREE.Mesh(geometry, material);
 
-coverbox.position.set(-2300, 204, -206);
+coverbox.position.set(-2000, 204, -206);
 
 // rotate coverbox 90 degrees in the xz axis
 coverbox.rotation.y = Math.PI / 2;
 
 scene.add(coverbox);
+var cameraPositionToGoTo = 300;
+var timeToMove = false;
+var currentCameraSpeed = 1;
 
 function animate() {
 	requestAnimationFrame(animate);
 	var time = performance.now();
 	var delta = (time - prevTime) / 30;
-
-	const direction = controls
-		.getDirection(new THREE.Vector3(0, 0, -1))
-		.clone();
 	const speed = 2;
 
 	if (isPressed["W"]) {
@@ -159,6 +145,7 @@ function animate() {
 
 		camera.position.x -= speed;
 	}
+
 	if (isPressed["A"]) {
 		// left
 		// const left = new THREE.Vector3(-1, 0, 0);
@@ -179,6 +166,7 @@ function animate() {
 
 		camera.position.z += speed;
 	}
+
 	if (isPressed["Space"]) {
 		// up
 		camera.position.y += speed;
@@ -187,6 +175,24 @@ function animate() {
 		// down
 		camera.position.y -= speed;
 	}
+	var blah; // to separate the if statements from the rest of the code
+	if (timeToMove) {
+		if (camera.position.z < cameraPositionToGoTo) {
+			camera.position.z += Math.min(
+				currentCameraSpeed,
+				Math.abs(camera.position.z - cameraPositionToGoTo)
+			);
+		} else if (camera.position.z > cameraPositionToGoTo) {
+			camera.position.z -= Math.min(
+				currentCameraSpeed,
+				Math.abs(camera.position.z - cameraPositionToGoTo)
+			);
+		} else {
+			timeToMove = false;
+		}
+		currentCameraSpeed = 5;
+	}
+
 	renderer.render(scene, camera);
 	// display camera coordinates in the bottom right corner of the canvas for debugging purposes
 	var cameraPosition = camera.position;
@@ -204,17 +210,70 @@ function animate() {
 }
 document.body.onload = function () {
 	// we have a input range slider that we want to control how far we can move the camera from left to right
-
+	animate();
 	var slider = document.getElementById("range");
 	slider.oninput = function () {
 		// get the value of the slider
 		var value = +this.value;
 
 		// set the camera position to the value of the slider
-		camera.position.z = 300 + value * 75;
+		cameraPositionToGoTo = 300 + value * 60;
+		timeToMove = true;
+		currentCameraSpeed = 5;
 	};
+
+	var threejscontainer = document.getElementById("threejs-container");
+	threejscontainer.appendChild(renderer.domElement);
+
+	var chatSubmitButton = document.getElementById("submitChat");
+
+	var userInput = document.getElementById("clientChatText");
+	var chatBox = document.getElementById("message_container");
+
+	chatSubmitButton.onclick = function () {
+		var message = userInput.value;
+		var messageElement = document.createElement("div");
+		messageElement.innerHTML = message;
+		messageElement.className = "chat_message";
+		chatBox.appendChild(messageElement);
+		socket.emit("chat message", message);
+	};
+
+	renderer.domElement.addEventListener("mousemove", (event) => {
+		const rect = renderer.domElement.getBoundingClientRect();
+		const mouse = new THREE.Vector2();
+		mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+		mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+		const raycaster = new THREE.Raycaster();
+		raycaster.setFromCamera(mouse, camera);
+
+		const intersects = raycaster.intersectObjects(scene.children, true);
+		if (intersects.length > 0) {
+			const intersectedObject = intersects[0].object;
+			if (intersectedObject.geometry instanceof THREE.BoxGeometry) {
+				console.log("Intersected object is a cube");
+
+				// Find the intersected CompanySphere
+				const intersectedCompanySphere = applicationSpheres
+					.flatMap((appSphere) => appSphere.companies)
+					.find((company) => company.sphere === intersectedObject);
+
+				if (intersectedCompanySphere) {
+					const companyInfoContent = document.getElementById(
+						"company-info-content"
+					);
+					companyInfoContent.innerHTML = Object.entries(
+						intersectedCompanySphere.companyData
+					)
+						.map(([key, value]) => `<p>${key}: ${value}</p>`)
+						.join("");
+				}
+			}
+		}
+	});
 };
-animate();
+
 var CompanySphere = function (x, y, z, radius, companyData, application) {
 	// load company logo as texture from /ext/logos/{companyname}.png
 	var companystr = companyData.company.split(" ").join("_");
@@ -249,6 +308,7 @@ var CompanySphere = function (x, y, z, radius, companyData, application) {
 
 	// Add the sphere to the scene
 	scene.add(this.sphere);
+	this.companyData = companyData;
 };
 
 CompanySphere.fromTuple = function (tuple) {
@@ -381,6 +441,9 @@ var processData = function (data) {
 	}
 
 	straightSpheresIntoSplinesBackward(applicationSpheres);
+
+	// find which splines are not getting used and remove them from the scene
+
 	// remove all applicationcylinders from the scene
 	applicationSpheres.forEach((appSphere) => {
 		scene.remove(appSphere.sphere);
@@ -544,7 +607,7 @@ function straightSpheresIntoSplinesBackward(applicationSpheres) {
 		color: 0xff0000,
 		opacity: 0.95,
 		transparent: true,
-		roughness: 0.75,
+		roughness: 0.25,
 	});
 
 	var tubeGeometries = splines.map((spline) => {
@@ -557,10 +620,11 @@ function straightSpheresIntoSplinesBackward(applicationSpheres) {
 	});
 	var tempApplicationSpheres = applicationSpheres.slice();
 	var segmentIndexes = new Array(splines.length).fill(segments - 0);
-
+	var tubes = [];
 	splines.forEach((spline, splineIndex) => {
 		const tubeGeometry = tubeGeometries[splineIndex];
 		const tubeMesh = new THREE.Mesh(tubeGeometry, tubeMaterial);
+		tubes.push(tubeMesh);
 		scene.add(tubeMesh);
 	});
 	var currentSplineIndex = 0;
@@ -600,6 +664,44 @@ function straightSpheresIntoSplinesBackward(applicationSpheres) {
 		}
 		currentSplineIndex = currentSplineIndex % splines.length;
 	}
+	// remove splines that aren't used from the scene
+	var lastUnusedSplineIndex = 0;
+	for (var i = 0; i < splines.length; i++) {
+		if (segmentIndexes[i] === segments) {
+			lastUnusedSplineIndex = i;
+			break;
+		}
+	}
+	var unusedTubeSplines = tubes.slice(lastUnusedSplineIndex);
+	unusedTubeSplines.forEach((tube) => {
+		scene.remove(tube);
+	});
+
+	// If the last spline that is used is  does not reach the end of the spline, add a black box to cover the end of the spline
+	var lastUsedSplineIndex = splines.length - 1;
+	for (var i = splines.length - 1; i >= 0; i--) {
+		if (segmentIndexes[i] !== segments) {
+			lastUsedSplineIndex = i;
+			break;
+		}
+	}
+	console.log(segmentIndexes[lastUsedSplineIndex]);
+	if (segmentIndexes[lastUsedSplineIndex] < segments) {
+		console.log("adding cover box");
+		var spline = splines[lastUsedSplineIndex];
+		var lastUsedSplineSegmentIndex = segmentIndexes[lastUsedSplineIndex];
+		var point = spline.getPointAt(
+			(lastUsedSplineSegmentIndex - 1) / segments
+		);
+		var coverbox = new THREE.Mesh(
+			new THREE.BoxGeometry(300, 100, 1000),
+			new THREE.MeshBasicMaterial({ color: 0x000000 })
+		);
+		//coverbox.position.copy(point);
+		coverbox.position.set(point.x - 500, point.y + 150, point.z);
+		coverbox.rotation.y = Math.PI / 2;
+		scene.add(coverbox);
+	}
 }
 function placeCompaniesAndInsertDisksPerApplicationSphereForward(
 	applicationSphere,
@@ -611,7 +713,7 @@ function placeCompaniesAndInsertDisksPerApplicationSphereForward(
 	const {
 		radiusOffset = 132,
 		diskRadius = 121,
-		diskHeight = 30,
+		diskHeight = 50,
 		companiesPerSegment = 10,
 	} = options;
 
@@ -701,7 +803,7 @@ function placeCompaniesAndInsertDisksPerApplicationSphereForward(
 				diskRadius,
 				diskRadius,
 				diskHeight,
-				128,
+				256,
 				1,
 				true,
 				0,
@@ -710,9 +812,7 @@ function placeCompaniesAndInsertDisksPerApplicationSphereForward(
 
 			// Create the texture for the text
 			var str = applicationSphere.application;
-			while (str.length < 10) {
-				str = "*" + str + "*";
-			}
+
 			const texture = createTextTexture(str);
 			const textMaterial = new THREE.MeshBasicMaterial({
 				map: texture,
@@ -759,7 +859,7 @@ function placeCompaniesAndInsertDisksPerApplicationSphereBackward(
 	const {
 		radiusOffset = 132,
 		diskRadius = 130,
-		diskHeight = 30,
+		diskHeight = 50,
 		companiesPerSegment = 10,
 	} = options;
 
@@ -787,7 +887,7 @@ function placeCompaniesAndInsertDisksPerApplicationSphereBackward(
 		diskRadius,
 		diskRadius,
 		diskHeight,
-		128,
+		256,
 		1,
 		true,
 		0,
@@ -796,9 +896,7 @@ function placeCompaniesAndInsertDisksPerApplicationSphereBackward(
 
 	// Create the texture for the text
 	var str = applicationSphere.application;
-	while (str.length < 10) {
-		str = "*" + str + "*";
-	}
+
 	const texture = createTextTexture(str, 100, 3000, 200, true);
 	const textMaterial = new THREE.MeshBasicMaterial({
 		map: texture,
@@ -897,7 +995,16 @@ function placeCompaniesAndInsertDisksPerApplicationSphereBackward(
 
 				company.sphere.lookAt(nextPosition);
 			}
+			if (angle <= Math.PI / 2) {
+				company.sphere.rotation.y += (Math.PI * 3) / 2;
+				company.sphere.rotation.x += (Math.PI * 3) / 2;
+			}
+			if (angle > Math.PI / 2) {
+				company.sphere.rotation.y += (Math.PI * 3) / 2;
+				company.sphere.rotation.z += (Math.PI * 3) / 2;
+			}
 		}
+
 		//segment iteration
 		companyIndex -= 2;
 	}
@@ -956,7 +1063,7 @@ function placeCompaniesAndInsertDisks(
 	const {
 		radiusOffset = 132,
 		diskRadius = 121,
-		diskHeight = 30,
+		diskHeight = 50,
 		companiesPerSegment = 10,
 	} = options;
 
@@ -1045,7 +1152,7 @@ function placeCompaniesAndInsertDisks(
 					diskRadius,
 					diskRadius,
 					diskHeight,
-					128,
+					256,
 					1,
 					true,
 					0,
@@ -1054,9 +1161,7 @@ function placeCompaniesAndInsertDisks(
 
 				// Create the texture for the text
 				var str = appSphere.application;
-				while (str.length < 10) {
-					str = "*" + str + "*";
-				}
+
 				const texture = createTextTexture(str);
 				const textMaterial = new THREE.MeshBasicMaterial({
 					map: texture,
@@ -1102,21 +1207,7 @@ function placeCompaniesAndInsertDisks(
 	});
 	return companyIndex;
 }
-function placeDiskAt(
-	position,
-	radius,
-	height,
-	material,
-	quaternion,
-	diskHeight = 0.2
-) {
-	const diskGeometry = new THREE.CylinderGeometry(radius, radius, height, 32);
-	const disk = new THREE.Mesh(diskGeometry, material);
-	disk.position.copy(position);
-	disk.position.y += diskHeight / 2; // Adjust vertical position to sit on the spline
-	disk.quaternion.copy(quaternion);
-	scene.add(disk);
-}
+
 function createSpiralTube(applicationSpheres, options = {}) {
 	const {
 		initialRadius = 1,
@@ -1163,82 +1254,6 @@ function createSpiralTube(applicationSpheres, options = {}) {
 	return { spline, segments };
 }
 
-var isMosaic = true;
-
-var generateNextSpiralPoint = function (
-	currentPoint,
-	currentRadius,
-	nextRadius,
-	index
-) {
-	// Spiral parameters
-	var spacing = 1.3; // Additional spacing to make it look nice (you can adjust this value)
-	var angle = 125.5 * (Math.PI / 180); // Fixed angle in radians (110 degrees)
-
-	// Calculate the distance needed to avoid overlap
-	var r = (currentRadius + nextRadius) * spacing;
-
-	// Calculate the angle relative to the origin
-	var dx = currentPoint.x;
-	var dz = currentPoint.z;
-	var currentAngle = Math.atan2(dz, dx);
-
-	// Calculate the new angle by adding the fixed angle to the current angle
-	var newAngle = currentAngle + angle;
-
-	// Calculate the new coordinates in the spiral (X-Z plane)
-	var x = currentPoint.x + r * index; //Math.cos(newAngle);
-	var z = currentPoint.z + r * index; //Math.sin(newAngle);
-	var y = 0; // Keeping y constant
-
-	return { x: x, y: y, z: z };
-};
-function positionCompaniesAroundCylinder(applicationSpheres) {
-	const heightStep = 2; // Distance between each company along the height of the cylinder
-	const radiusOffset = 1.2; // Offset from the surface of the cylinder
-
-	applicationSpheres.forEach((appSphere) => {
-		const appRadius = appSphere.sphere.geometry.parameters.radiusTop; // Assuming the cylinder's top radius
-		const appHeight = appSphere.sphere.geometry.parameters.height;
-		const numberOfCompanies = appSphere.companies.length; // Dynamic number of companies
-
-		appSphere.companies.forEach((company, index) => {
-			const angle = (index / numberOfCompanies) * Math.PI * 2;
-			const height = ((index * heightStep) % appHeight) - appHeight / 2;
-
-			const localX = (appRadius + radiusOffset) * Math.cos(angle);
-			const localY = height;
-			const localZ = (appRadius + radiusOffset) * Math.sin(angle);
-
-			const position = new THREE.Vector3(localX, localY, localZ);
-			position.applyQuaternion(appSphere.sphere.quaternion); // Rotate to match the cylinder's orientation
-			position.add(appSphere.sphere.position); // Translate to the cylinder's position
-
-			company.updatePosition(position.x, position.y, position.z);
-		});
-	});
-}
-function rotateSpheresToFaceNext(spheres) {
-	for (let i = 1; i < spheres.length - 1; i++) {
-		let currentSphere = spheres[i].sphere;
-		let nextSphere = spheres[i + 1].sphere;
-
-		// Calculate the direction vector from current to next sphere
-		let direction = new THREE.Vector3();
-		direction
-			.subVectors(nextSphere.position, currentSphere.position)
-			.normalize();
-
-		// Calculate the quaternion to rotate the cylinder
-		let up = new THREE.Vector3(0, 1, 0); // Assuming the cylinder is initially aligned with the Y-axis
-		let quaternion = new THREE.Quaternion();
-		quaternion.setFromUnitVectors(up, direction);
-
-		// Apply the quaternion rotation to the current sphere
-		//currentSphere.quaternion.copy(quaternion);
-	}
-}
-
 // connect to the server
 var rawData = [];
 
@@ -1247,19 +1262,22 @@ socket.on("connect", () => {
 	console.log("connected");
 	socket.emit("getdata");
 	socket.on("data", (data) => {
-		if (data === "End of data") {
-			console.log("All data received");
-			processData(rawData);
-		} else {
-			// Handle the received data chunk
-			rawData = rawData.concat(data); // data is an array of tuple'ized' application spheres
-			console.log(
-				"chunk received: ",
-				data.length,
-				"total: ",
-				rawData.length
-			);
-			socket.emit("nextchunk");
-		}
+		rawData = data;
+		processData(rawData);
+	});
+	socket.on("PromptResponse", (data) => {
+		// remove all spheres and cylinders from the scene
+		scene.remove.apply(scene, scene.children);
+		// add back the lighting
+		scene.add(new THREE.AmbientLight(0x404040));
+		var light = new THREE.DirectionalLight(0xffffff);
+		light.position.set(1, 1, 1).normalize();
+		scene.add(light);
+		// clear the applicationSpheres and splines
+		applicationSpheres.splice(0, applicationSpheres.length);
+		window.splines.splice(0, window.splines.length);
+		rawData = [];
+
+		processData(data);
 	});
 });

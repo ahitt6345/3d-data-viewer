@@ -1,2 +1,13 @@
 node_modules
 Backend/gendata.csv
+AI_Company_Database/.env
+Backend/.env
+*.env
+*.db
+Backend/gendata_final_summary_shortened.csv
+Backend/gendata_cleaned_up.csv
+Backend/newgendata.csv
+Backend/new_company_data.csv
+AI_Company_Database/gendata_final_summary_shortened.csv
+AI_Company_Database/gendata_summarized_250.csv
+AI_Company_Database/gendata.csv
