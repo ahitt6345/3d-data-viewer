@@ -408,6 +408,22 @@ io.on("connection", (socket) => {
 			generateApplicationSpheresForSplines(response)
 		);
 	});
+	socket.on("needRawData", () => {
+		// this is the initial data pull. we send everything in the database to the frontend
+		db.all("SELECT * FROM companies", [], (err, rows) => {
+			if (err) {
+				throw err;
+			}
+			socket.emit("rawdata", rows);
+		});
+	});
+	socket.on("rawChatMessage", async (msg) => {
+		// this is the chat message event. we will send the message to the AI and then we will send the response to the frontend
+		console.log("message: " + msg);
+		var response = await extractCompaniesthatAreRelevantToPrompt(msg);
+
+		socket.emit("rawPromptResponse", response);
+	});
 	socket.on("disconnect", () => {
 		console.log("user disconnected");
 	});

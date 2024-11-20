@@ -32,7 +32,7 @@ const camera = new THREE.PerspectiveCamera(
 );
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth * 0.75, window.innerHeight / 2);
-document.body.appendChild(renderer.domElement);
+//document.body.appendChild(renderer.domElement);
 
 camera.position.z = 10;
 camera.quaternion.set(0.5, 0.5, 0.5, -0.5);
@@ -897,7 +897,7 @@ function placeCompaniesAndInsertDisksPerApplicationSphereBackward(
 	// Create the texture for the text
 	var str = applicationSphere.application;
 
-	const texture = createTextTexture(str, 100, 3000, 200, true);
+	const texture = createTextTexture(str);
 	const textMaterial = new THREE.MeshBasicMaterial({
 		map: texture,
 		side: THREE.DoubleSide,
@@ -1012,12 +1012,12 @@ function placeCompaniesAndInsertDisksPerApplicationSphereBackward(
 }
 
 // Your function to create the texture
-function createTextTexture(
+function createTextTexture( // , 100, 3000, 200, true
 	text,
 	fontSize = 100,
 	width = 3000,
 	height = 200,
-	upsideDown = false
+	upsideDown = true
 ) {
 	const canvas = document.createElement("canvas");
 	canvas.width = width;
