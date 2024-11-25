@@ -53,6 +53,8 @@ const camera = new THREE.PerspectiveCamera(
 );
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setAnimationLoop(animate);
 var isPressed = {};
 var prevTime = performance.now();
 
@@ -62,6 +64,7 @@ scene.add(light);
 
 const ambientLight = new THREE.AmbientLight(0x404040); // soft ambient light
 scene.add(ambientLight);
+scene.background = new THREE.Color(0x87ceeb); // Sky blue color
 
 window.camera = camera;
 
@@ -105,19 +108,19 @@ scene.add(arrowHelper3);
 arrowHelper.position.y = 10;
 arrowHelper2.position.y = 10;
 arrowHelper3.position.y = 10;
-// const waterGeometry = new THREE.PlaneGeometry(80, 10000);
-// const water = new Water(waterGeometry, {
-// 	color: 0x87ceeb,
-// 	scale: 20,
-// 	flowDirection: new THREE.Vector2(0, 1),
-// 	textureWidth: 1024,
-// 	textureHeight: 1024,
-// 	reflectivity: 0.9, // Adjust reflectivity
-// 	shininess: 10, // Adjust shininess
-// });
-// water.rotation.x = -Math.PI / 2; // Lay flat
-// water.position.set(0, 1, 0);
-// scene.add(water);
+const waterGeometry = new THREE.PlaneGeometry(80, 1300);
+const water = new Water(waterGeometry, {
+	color: 0x87ceeb,
+	scale: 25,
+	flowDirection: new THREE.Vector2(0, 1),
+	textureWidth: 128, // Reduce texture size
+	textureHeight: 512, // Reduce texture size
+	reflectivity: 0.7, // Reduce reflectivity
+	shininess: 10, // Reduce shininess
+});
+water.rotation.x = -Math.PI / 2; // Lay flat
+water.position.set(0, 0, 0);
+scene.add(water);
 
 // Add ripples to the water
 const clock = new THREE.Clock();
@@ -266,7 +269,7 @@ class Block {
 				(columns > 1 ? blockLength / 2 - BUILDING_WIDTH / 2 : 0) +
 				lastBlock.block.geometry.parameters.depth / 2 +
 				blockLength / 2 +
-				10;
+				5;
 		}
 		// Platform position
 		const sideMultiplier = isLeftSide ? -1 : 1;
@@ -289,6 +292,13 @@ class Block {
 		});
 		this.block = new THREE.Mesh(platformGeometry, platformMaterial);
 		this.block.position.set(platformCenterX, platformY, platformZ);
+
+		// Add outline to the top platform
+		const edges1 = new THREE.EdgesGeometry(platformGeometry);
+		const lineMaterial1 = new THREE.LineBasicMaterial({ color: 0x000000 });
+		const wireframe1 = new THREE.LineSegments(edges1, lineMaterial1);
+		this.block.add(wireframe1);
+
 		// add another platform the same size as the first one but slightly below, I want to have green grass on the top platform and brown dirt on the bottom platform
 		const platformGeometry2 = new THREE.BoxGeometry(
 			blockWidth + 10,
@@ -304,8 +314,13 @@ class Block {
 			platformY - (blockHeight + 2),
 			platformZ
 		);
-		scene.add(platform2);
 
+		// Add outline to the bottom platform
+		const edges2 = new THREE.EdgesGeometry(platformGeometry2);
+		const wireframe2 = new THREE.LineSegments(edges2, lineMaterial1);
+		platform2.add(wireframe2);
+
+		scene.add(platform2);
 		scene.add(this.block);
 
 		// Arrange buildings in a grid starting near the highway
@@ -506,7 +521,6 @@ document.addEventListener("keyup", (event) => {
 	}
 });
 function animate() {
-	requestAnimationFrame(animate);
 	var time = performance.now();
 	const speed = 2;
 	// get direction the camera is facing
