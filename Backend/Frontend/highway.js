@@ -3,6 +3,7 @@ import { TextGeometry } from "/ext/TextGeometry.js";
 import { FontLoader } from "/ext/FontLoader.js";
 import { PointerLockControls } from "/ext/PointerLockControls.js";
 import { Water } from "/ext/water.js";
+import { LineMaterial } from "/ext/LineMaterial.js";
 /*
 	This application is a 3d data visualization tool. Each building is a specific company, the height of the building corresponds to the mosaic score of the company.
 	We're going to organize the buildings in a grid of 'blocks' where each block is a grid of buildings matching companies in the same industry/application.
@@ -40,7 +41,6 @@ var helvetiker;
 var helvetikerFont;
 (async () => {
 	helvetiker = await loadFont();
-	console.log(helvetiker);
 	// Use the font data as needed
 	helvetikerFont = new FontLoader().parse(helvetiker);
 })();
@@ -108,30 +108,19 @@ scene.add(arrowHelper3);
 arrowHelper.position.y = 10;
 arrowHelper2.position.y = 10;
 arrowHelper3.position.y = 10;
-const waterGeometry = new THREE.PlaneGeometry(80, 1300);
-const water = new Water(waterGeometry, {
-	color: 0x87ceeb,
-	scale: 25,
-	flowDirection: new THREE.Vector2(0, 1),
-	textureWidth: 128, // Reduce texture size
-	textureHeight: 512, // Reduce texture size
-	reflectivity: 0.7, // Reduce reflectivity
-	shininess: 10, // Reduce shininess
-});
-water.rotation.x = -Math.PI / 2; // Lay flat
-water.position.set(0, 0, 0);
-scene.add(water);
-
-// Add ripples to the water
-const clock = new THREE.Clock();
-
-// add a light blue plane under the water to simulate the water's color
-// const waterColorGeometry = new THREE.PlaneGeometry(100, 10000);
-// const waterColorMaterial = new THREE.MeshBasicMaterial({ color: 0x87ceeb });
-// const waterColor = new THREE.Mesh(waterColorGeometry, waterColorMaterial);
-// waterColor.rotation.x = Math.PI / 2;
-// waterColor.position.set(0, 0, 0);
-// scene.add(waterColor);
+// const waterGeometry = new THREE.PlaneGeometry(80, 1300);
+// const water = new Water(waterGeometry, {
+// 	color: 0x87ceeb,
+// 	scale: 25,
+// 	flowDirection: new THREE.Vector2(0, 1),
+// 	textureWidth: 128, // Reduce texture size
+// 	textureHeight: 512, // Reduce texture size
+// 	reflectivity: 0.7, // Reduce reflectivity
+// 	shininess: 10, // Reduce shininess
+// });
+// water.rotation.x = -Math.PI / 2; // Lay flat
+// water.position.set(0, 0, 0);
+// scene.add(water);
 //controls
 
 const controls = new PointerLockControls(camera, document.body);
@@ -139,7 +128,7 @@ scene.add(controls.getObject());
 document.addEventListener("click", () => {
 	controls.lock();
 });
-
+const FLOOR_HEIGHT = 2;
 class Building {
 	constructor(mosaic, color, name, data) {
 		this.height = Building.generateHeight(mosaic);
@@ -161,19 +150,30 @@ class Building {
 
 		var materials = [];
 		for (let i = 0; i < 6; i++) {
-			// Side faces: use a material with text
-			const texture = this.createTextTexture(this.name);
-			materials.push(
-				new THREE.MeshBasicMaterial({
-					map: texture,
-					transparent: true,
-				})
-			);
+			if (i === 3 || i === 2) {
+				// Top and bottom faces: use a simple color material
+				const texture = this.createRoofTexture(this.name);
+				materials.push(
+					new THREE.MeshBasicMaterial({
+						map: texture,
+						transparent: true,
+					})
+				);
+			} else {
+				// Side faces: use a material with text
+				const texture = this.createTextTexture(this.name);
+				materials.push(
+					new THREE.MeshBasicMaterial({
+						map: texture,
+						transparent: true,
+					})
+				);
+			}
 		}
 		this.building = new THREE.Mesh(geometry, materials);
 		this.building.position.set(x, y + this.height / 2, z);
 		scene.add(this.building);
-
+		this.building.userData.building = this;
 		// Add black border
 		const edges = new THREE.EdgesGeometry(geometry);
 		const lineMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
@@ -184,7 +184,7 @@ class Building {
 		// Create a canvas element
 		const canvas = document.createElement("canvas");
 		canvas.width = 256; // Width of the texture
-		canvas.height = 256; // Height of the texture
+		canvas.height = this.height; // Height of the texture
 		const ctx = canvas.getContext("2d");
 
 		// Fill the background (optional)
@@ -194,17 +194,53 @@ class Building {
 		)}, ${Math.floor(this.color.b * 255)})`;
 		ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+		// Draw the floors of the building based on FLOOR_HEIGHT
+		const numFloors = Math.floor(this.height / (FLOOR_HEIGHT * 2));
+		for (let i = 0; i < numFloors; i++) {
+			const floorY = canvas.height - (i + 1) * (FLOOR_HEIGHT * 2);
+
+			// Draw the floor
+			ctx.fillStyle = "#494949"; // dark grey color in hex code
+			ctx.fillRect(0, floorY, canvas.width, FLOOR_HEIGHT);
+			//add grey cuts in the windows
+			ctx.fillStyle = "black";
+			for (let j = 0; j < 5; j++) {
+				ctx.fillRect(j * 50, floorY, 0.5, FLOOR_HEIGHT);
+			}
+		}
+		// Create a texture from the canvas
+		const texture = new THREE.CanvasTexture(canvas);
+		texture.needsUpdate = true;
+		texture.minFilter = THREE.NearestFilter;
+		texture.magFilter = THREE.NearestFilter;
+		return texture;
+	}
+
+	createRoofTexture(text) {
+		// Create a canvas element
+		const canvas = document.createElement("canvas");
+		canvas.width = 512; // Width of the texture
+		canvas.height = 512; // Height of the texture
+		const ctx = canvas.getContext("2d");
+
+		// Fill the background (optional)
+		ctx.fillStyle = `rgb(${Math.floor(this.color.r * 255)}, ${Math.floor(
+			this.color.g * 255
+		)}, ${Math.floor(this.color.b * 255)})`;
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+
 		// Draw the text in the top-left corner
 		ctx.fillStyle = "black";
-		ctx.font = "bold 25px Arial";
+		ctx.font = "bold 50px Arial";
 		ctx.textAlign = "left";
 		ctx.textBaseline = "top";
 		ctx.fillText(text, 10, 10); // Position at (10, 10)
 
-		// Create a texture from the canvas
+		// Make canvas texture
 		const texture = new THREE.CanvasTexture(canvas);
 		texture.needsUpdate = true;
-
+		texture.minFilter = THREE.NearestFilter;
+		texture.magFilter = THREE.NearestFilter;
 		return texture;
 	}
 	static generateHeight(mosaicScore) {
@@ -219,8 +255,8 @@ class Building {
 		// Define the minimum mosaic score
 		const maxScore = rawData.maxScore;
 		// Define the maximum mosaic score
-		const minHeight = 1;
-		const maxHeight = 25;
+		const minHeight = FLOOR_HEIGHT * 2;
+		const maxHeight = 30;
 
 		// Normalize the mosaic score to a value between 0 and 1
 		const normalizedScore =
@@ -284,11 +320,11 @@ class Block {
 		// Create a platform for the block
 		const platformGeometry = new THREE.BoxGeometry(
 			blockWidth + 10,
-			blockHeight,
+			blockHeight + 5,
 			blockLength + 10
 		);
 		const platformMaterial = new THREE.MeshBasicMaterial({
-			color: 0x008000, // green color between 0x00ff00 and 0x006400
+			color: 0x808080, // gray color
 		});
 		this.block = new THREE.Mesh(platformGeometry, platformMaterial);
 		this.block.position.set(platformCenterX, platformY, platformZ);
@@ -298,31 +334,31 @@ class Block {
 		const lineMaterial1 = new THREE.LineBasicMaterial({ color: 0x000000 });
 		const wireframe1 = new THREE.LineSegments(edges1, lineMaterial1);
 		this.block.add(wireframe1);
-
-		// add another platform the same size as the first one but slightly below, I want to have green grass on the top platform and brown dirt on the bottom platform
-		const platformGeometry2 = new THREE.BoxGeometry(
-			blockWidth + 10,
-			blockHeight + 4,
-			blockLength + 10
-		);
-		const platformMaterial2 = new THREE.MeshBasicMaterial({
-			color: 0x8b4513, // brown color
-		});
-		const platform2 = new THREE.Mesh(platformGeometry2, platformMaterial2);
-		platform2.position.set(
-			platformCenterX,
-			platformY - (blockHeight + 2),
-			platformZ
-		);
-
-		// Add outline to the bottom platform
-		const edges2 = new THREE.EdgesGeometry(platformGeometry2);
-		const wireframe2 = new THREE.LineSegments(edges2, lineMaterial1);
-		platform2.add(wireframe2);
-
-		scene.add(platform2);
 		scene.add(this.block);
 
+		// Add text in front of the block facing the highway
+		const textGeometry = new TextGeometry(this.categoryName, {
+			font: helvetikerFont,
+			size: 1,
+			depth: 0.2, // Reduced depth of the letters
+			curveSegments: 12,
+			bevelEnabled: false,
+		});
+		const textMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+		const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+		textMesh.position.set(
+			platformCenterX -
+				((sideMultiplier * blockWidth) / 2 +
+					5 +
+					(sideMultiplier > 0 ? 0 : -10)),
+
+			platformY + 5,
+			platformZ
+		);
+		// If on the right side, rotate the text to face +x axis (right), otherwise -x axis (left)
+		textMesh.rotation.y = isLeftSide ? Math.PI / 2 : -Math.PI / 2;
+
+		scene.add(textMesh);
 		// Arrange buildings in a grid starting near the highway
 		for (let i = 0; i < this.buildings.length; i++) {
 			const row = Math.floor(i / columns);
@@ -396,7 +432,7 @@ function processRawData(data) {
 	var colorIndex = 0;
 	function generateColor(index, total) {
 		const hue = (index / total) * 360;
-		return new THREE.Color(`hsl(${hue}, 100%, 50%)`);
+		return new THREE.Color(`hsl(${hue}, 100%, 40%)`); // Adjusted lightness to 30% for darker colors
 	}
 
 	const totalApplications = Object.keys(applications).length;
@@ -414,27 +450,9 @@ function processRawData(data) {
 	// sort appKeys by the number of companies in each application
 	appKeys.sort((a, b) => applications[b].length - applications[a].length);
 
-	// loop through the applications and create a block for each application
-	// This section only works for 1 side of the highway, we need to do both sides of the highway
-	// var startX = -250;
-	// var startY = 5;
-	// var startZ = -400;
-	// for (var i = 0; i < appKeys.length; i++) {
-	// 	var application = appKeys[i];
-	// 	var companies = applications[application];
-	// 	var category = applicationColors[application];
-	// 	var block = new Block(startX, startY, startZ, category, application);
-	// 	for (var j = 0; j < companies.length; j++) {
-	// 		block.addBuilding(companies[j]);
-	// 	}
-	// 	var lastBlock = Block.blocks[Block.blocks.length - 2];
-	// 	block.initBlock(1, lastBlock);
-	// 	startZ = block.block.position.z + block.getBlockLength();
-	// }
-
 	// This section works for both sides of the highway
-	var leftX = -50;
-	var rightX = 50;
+	var leftX = -20;
+	var rightX = 20;
 
 	var leftZ = -400;
 	var rightZ = -400;
@@ -591,12 +609,51 @@ function animate() {
 	cameraPositionElement.innerHTML = cameraPositionString;
 	prevTime = time;
 }
-
+var threejscontainer;
 document.body.onload = function () {
-	var threejscontainer = document.getElementById("threejs-container");
+	threejscontainer = document.getElementById("threejs-container");
 	threejscontainer.appendChild(renderer.domElement);
+	document.body.addEventListener("mousemove", (event) => {
+		// consider changing this to a click event, lots of lag with mousemove
+		const rect = renderer.domElement.getBoundingClientRect();
+		const mouse = {
+			x: ((event.clientX - rect.left) / rect.width) * 2 - 1,
+			y: -((event.clientY - rect.top) / rect.height) * 2 + 1,
+		};
+
+		const raycaster = new THREE.Raycaster();
+		raycaster.setFromCamera(mouse, camera);
+
+		const intersects = raycaster.intersectObjects(
+			scene.children.filter((obj) => obj instanceof THREE.Mesh)
+		);
+
+		if (intersects.length > 0) {
+			const intersectedObject = intersects[0].object;
+			if (
+				intersectedObject.userData &&
+				intersectedObject.userData.building
+			) {
+				// console.log(
+				// 	`Looking at building: ${intersectedObject.userData.building.name}`
+				// );
+				const buildingData = intersectedObject.userData.building.data;
+				const infoDiv = document.getElementById("overlay");
+				infoDiv.innerHTML = `
+					<h3>${buildingData.company}</h3>
+				`;
+				// loop through all the other properties in the buildingData object and add them to the infoDiv
+				for (var key in buildingData) {
+					if (key != "company") {
+						infoDiv.innerHTML += `<p>${key}: ${buildingData[key]}</p>`;
+					}
+				}
+			}
+		}
+	});
 	animate();
 };
+
 const socket = io("http://localhost:3000");
 socket.on("connect", () => {
 	console.log("connected");
